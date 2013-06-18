@@ -51,8 +51,11 @@ public:
 
     // _GLIBCXX_RESOLVE_LIB_DEFECTS
     // 402. wrong new expression in [some_] allocator::construct
-    // void 
-    //     construct(pointer __p, const _Tp& __val);
+    void 
+        construct(pointer __p, const _Tp& __val)
+        {
+            ::new((void *)__p) _Tp(__val);
+        }
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
     template<typename... _Args>
@@ -107,8 +110,9 @@ void HeapInfo::init(int dataSize)
 {
     mspace space = create_mspace(dataSize,1); 
     void * storage = mspace_malloc(space,sizeof(HeapInfoImpl));
-    m_impl = new (storage)HeapInfoImpl; 
+    m_impl = reinterpret_cast<HeapInfoImpl*>(storage);
     m_impl->m_data = space;
+    m_impl = new (storage)HeapInfoImpl; 
 }
 
 

@@ -32,9 +32,10 @@ static void* _malloc(uptr bytes)
     {
         return data;
     }
+    void * chunkaddr= reinterpret_cast<void*>(mem2chunk(data));
     ChunkInfo info;
-    ChunkInfo::get(info,data);
-    HeapInfo::registerChunkInfo((void*)data,info);
+    ChunkInfo::get(info,chunkaddr);
+    HeapInfo::registerChunkInfo((void*)chunkaddr,info);
     return data;
 }
 
@@ -50,9 +51,10 @@ static void* _calloc(uptr n_elements, uptr elem_size)
     {
         return data;
     }
+    void * chunkaddr= reinterpret_cast<void*>(mem2chunk(data));
     ChunkInfo info;
-    ChunkInfo::get(info,data);
-    HeapInfo::registerChunkInfo((void*)data,info);
+    ChunkInfo::get(info,chunkaddr);
+    HeapInfo::registerChunkInfo((void*)chunkaddr,info);
     return data;
 }
 
@@ -63,9 +65,10 @@ static void* _realloc(void* oldMem, uptr bytes)
     {
         HeapInfo::unregisterChunkInfo((void*)mem2chunk(oldMem));
         void * data = newMem;
+        void * chunkaddr= reinterpret_cast<void*>(mem2chunk(data));
         ChunkInfo info;
-        ChunkInfo::get(info,data);
-        HeapInfo::registerChunkInfo((void*)data,info);
+        ChunkInfo::get(info,chunkaddr);
+        HeapInfo::registerChunkInfo((void*)chunkaddr,info);
     }
     return newMem;
 }
@@ -77,9 +80,10 @@ static void* _memalign(uptr alignment, uptr bytes)
     {
         return data;
     }
+    void * chunkaddr= reinterpret_cast<void*>(mem2chunk(data));
     ChunkInfo info;
-    ChunkInfo::get(info,data);
-    HeapInfo::registerChunkInfo((void*)data,info);
+    ChunkInfo::get(info,chunkaddr);
+    HeapInfo::registerChunkInfo((void*)chunkaddr,info);
     return data;
 }
 
@@ -97,6 +101,8 @@ public:
         HeapInfo::init(64 * (1 << 20));
         overrideMalloc();
         BrowserShell::startServer();
+        dlmalloc(12);
+        dlmalloc(14);
     }
 private:
     static void overrideMalloc()

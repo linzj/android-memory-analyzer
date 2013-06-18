@@ -1424,6 +1424,7 @@ extern void*     sbrk(ptrdiff_t);
 #define MAP_ANONYMOUS        MAP_ANON
 #endif /* MAP_ANON */
 #ifdef MAP_ANONYMOUS
+// #if 0
 #define MMAP_FLAGS           (MAP_PRIVATE|MAP_ANONYMOUS)
 #define CALL_MMAP(s)         mmap(0, (s), MMAP_PROT, MMAP_FLAGS, -1, 0)
 #else /* MAP_ANONYMOUS */
@@ -2288,7 +2289,7 @@ static void reset_on_error(mstate m);
  */
 #ifdef LOG_ON_HEAP_ERROR
 
-#  include <private/logd.h>
+// #  include <private/logd.h>
 
 /* Convert a pointer into hex string */
 static void __bionic_itox(char* hex, void* ptr)
@@ -2326,7 +2327,7 @@ static void __bionic_heap_error(const char* msg, const char* function, void* p)
         strlcat(buffer, hexbuffer, sizeof(buffer));
     }
 
-    __libc_android_log_write(ANDROID_LOG_FATAL,"libc",buffer);
+    fprintf(stderr,"%s\n",buffer);
 
     /* So that we can get a memory dump around p */
     *((int **) 0xdeadbaad) = (int *) p;
