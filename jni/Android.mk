@@ -22,7 +22,7 @@ MY_SRC := \
 ../src/dlmalloc.c 
 
 LOCAL_MODULE    := dlmalloc
-LOCAL_CFLAGS    :=  -Werror -ffunction-sections -funwind-tables -DMSPACES=1 -DUSE_DL_PREFIX=1 -DHAVE_MORECORE=0 -DLOG_ON_HEAP_ERROR=1  -DUSE_LOCKS=1
+LOCAL_CFLAGS    :=  -ffunction-sections -funwind-tables -DMSPACES=1 -DUSE_DL_PREFIX=1 -DHAVE_MORECORE=0 -DLOG_ON_HEAP_ERROR=1  -DUSE_LOCKS=1
 LOCAL_LDLIBS    := 
 #LOCAL_SHARED_LIBRARIES := myfunc
 LOCAL_SRC_FILES :=  $(MY_SRC)
@@ -44,7 +44,7 @@ MY_SRC := \
 
 LOCAL_MODULE    := memanaly
 LOCAL_CFLAGS    :=  -Werror  -ffunction-sections -fno-rtti -fvisibility=hidden -funwind-tables -DUSE_DL_PREFIX=1 -DMSPACES=1
-LOCAL_LDLIBS    :=  -Wl,--gc-sections -lc 
+LOCAL_LDLIBS    :=  -Wl,--gc-sections -lc  -llog
 LOCAL_STATIC_LIBRARIES := dlmalloc
 LOCAL_SRC_FILES :=  $(MY_SRC)
 

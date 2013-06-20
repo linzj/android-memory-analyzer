@@ -1,6 +1,7 @@
 #include "HeapServer.h"
 #if defined(ENABLE_HEAP_SEVER) && ENABLE_HEAP_SEVER == 1
 #include <stdint.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <errno.h>
@@ -16,6 +17,19 @@
 #endif // LIN_USE_LOG
 #include "ChunkInfo.h"
 #include "HeapInfo.h"
+
+struct mymallinfo {
+  size_t arena;    /* non-mmapped space allocated from system */
+  size_t ordblks;  /* number of free chunks */
+  size_t smblks;   /* always 0 */
+  size_t hblks;    /* always 0 */
+  size_t hblkhd;   /* space in mmapped regions */
+  size_t usmblks;  /* maximum total allocated space */
+  size_t fsmblks;  /* always 0 */
+  size_t uordblks; /* total allocated space */
+  size_t fordblks; /* total free space */
+  size_t keepcost; /* releasable (via malloc_trim) space */
+};
 extern "C"
 {
     void* dlmalloc(size_t);
@@ -24,6 +38,7 @@ extern "C"
                 const void *userptr, size_t userlen,
                 void *arg),
             void *harg);
+    mymallinfo dlmallinfo(void);
 }
 
 
@@ -59,7 +74,7 @@ class DumpHeap
 
     private:
         
-        void notifyChunk(const void * chunk,size_t len,bool inUsed);
+        void notifyChunk(const void * chunk,size_t len,const void * userptr,size_t userlen);
         static void mywalk(const void *chunkptr, size_t chunklen,
                 const void *userptr, size_t userlen,
                 void *arg);
@@ -81,11 +96,11 @@ struct SendOnce
     const void * m_backtraces[ChunkInfo::MAX_BACKTRACES];
 };
 
-void DumpHeap::notifyChunk( const void * chunk,size_t len,bool inUsed)
+void DumpHeap::notifyChunk( const void * chunk,size_t len,const void * userptr ,size_t userlen)
 {
-    if(inUsed)
+    if(userptr)
     {
-        SendOnce once = { chunk,len};
+        SendOnce once = { userptr,userlen};
         const ChunkInfo * info = HeapInfo::getChunkInfo(chunk);
         size_t sendSize = offsetof(SendOnce,m_backtraces);
         if(info && info->m_backtracesLen)
@@ -102,6 +117,7 @@ void DumpHeap::notifyChunk( const void * chunk,size_t len,bool inUsed)
            once.m_backtracesLen = 0;
         }
         sendTillEnd(m_fd,reinterpret_cast<const char *>(&once),sendSize);
+        sendTillEnd(m_fd,static_cast<const char *>(userptr),userlen);
     }
 }
 
@@ -116,7 +132,7 @@ void DumpHeap::mywalk(const void *chunkptr, size_t chunklen,
         void *arg)
 {
     DumpHeap * This = reinterpret_cast<DumpHeap*>(arg);
-    This->notifyChunk(chunkptr,chunklen,userptr != NULL);
+    This->notifyChunk(chunkptr,chunklen,userptr ,userlen);
 }
 
 
@@ -125,6 +141,8 @@ static void handleClient(int fd,struct sockaddr * )
 {
     DumpHeap dh(fd);
     dh.callWalk();
+    mymallinfo myinfo = dlmallinfo();
+    fprintf(stderr,"free space = %f\n",((float)myinfo.fordblks) / 1024.0f);
 }
 static void * serverFunc(void *)
 {

@@ -3672,6 +3672,7 @@ static void* sys_alloc(mstate m, size_t nb) {
     if (rsize > nb) { /* Fail if wraps around zero */
       char* mp = (char*)(CALL_MMAP(rsize));
       if (mp != CMFAIL) {
+          __android_log_print(3,"LIN","newed %d size \n",rsize);
         tbase = mp;
         tsize = rsize;
         mmap_flag = IS_MMAPPED_BIT;
@@ -3744,6 +3745,7 @@ static void* sys_alloc(mstate m, size_t nb) {
           char* oldbase = sp->base;
           sp->base = tbase;
           sp->size += tsize;
+          __android_log_print(3,"LIN","prepend_alloc : size = %d\n",sp->size);
           return prepend_alloc(m, tbase, oldbase, nb);
         }
         else

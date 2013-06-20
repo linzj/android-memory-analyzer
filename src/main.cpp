@@ -1,3 +1,7 @@
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <stdint.h>
 #include "ChunkInfo.h"
 #include "dlmalloc.h"
@@ -98,11 +102,13 @@ class Constructor
 public:
     Constructor()
     {
+        //resetStdIo();
         HeapInfo::init(64 * (1 << 20));
         overrideMalloc();
         BrowserShell::startServer();
         dlmalloc(12);
         dlmalloc(14);
+        
     }
 private:
     static void overrideMalloc()
@@ -111,6 +117,15 @@ private:
 
         __libc_malloc_dispatch = &_malloc_dispatch;
     }
+
+    // static void resetStdIo(void)
+    // {
+    //     close(1);
+    //     close(2);
+    //     int fd = open("/sdcard/stdio",O_WRONLY | O_CREAT,0666);
+    //     dup2(fd,1);
+    //     dup2(fd,2);
+    // }
 };
 
 
