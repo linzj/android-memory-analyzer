@@ -17,6 +17,7 @@
 #endif // LIN_USE_LOG
 #include "ChunkInfo.h"
 #include "HeapInfo.h"
+#include "thread_db.h"
 
 struct mymallinfo {
   size_t arena;    /* non-mmapped space allocated from system */
@@ -30,6 +31,7 @@ struct mymallinfo {
   size_t fordblks; /* total free space */
   size_t keepcost; /* releasable (via malloc_trim) space */
 };
+
 extern "C"
 {
     void* dlmalloc(size_t);
@@ -47,6 +49,38 @@ static const  uint16_t s_port = 3244;
 
 
 namespace BrowserShell {
+static td_err_e (*td_init_p) (void);
+static td_err_e (*td_ta_new_p) (struct ps_prochandle *__ps, td_thragent_t **__ta);
+static td_err_e (*td_ta_thr_iter_p) (const td_thragent_t *__ta,
+				td_thr_iter_f *__callback, void *__cbdata_p,
+				td_thr_state_e __state, int __ti_pri,
+				sigset_t *__ti_sigmask_p,
+				unsigned int __ti_user_flags);
+static td_err_e (*td_ta_delete_p) (td_thragent_t *__ta);
+static td_err_e (*td_thr_get_info) (const td_thrhandle_t *__th,
+				 td_thrinfo_t *__infop);
+
+static void initThreadDb(void)
+{
+    void * handle = dlopen("libthread_db.so",RTLD_NOW);
+    if(!handle)
+    {
+        return ;
+    }
+#define ASSGIN_FORCE(t,name)\
+    *reinterpret_cast<uintptr_t*>(&t) = reinterpret_cast<uintptr_t>(dlsym(handle,#name))
+    ASSGIN_FORCE(td_init_p,td_init);
+    ASSGIN_FORCE(td_ta_new_p,td_ta_new);
+    ASSGIN_FORCE(td_ta_thr_iter_p,td_ta_thr_iter);
+    ASSGIN_FORCE(td_ta_delete_p,td_ta_delete);
+    ASSGIN_FORCE(td_thr_get_info_p,td_thr_get_info);
+    if(!td_init_p || !td_ta_new_p || !td_ta_thr_iter_p || !td_ta_delete_p || !td_thr_get_info_p)
+    {
+        td_init_p = NULL;
+        dlclose(handle);
+    }
+    (*td_init_p)();
+}
 
 static int sendTillEnd(int fd,const char * buffer,size_t s)
 {
@@ -88,6 +122,7 @@ DumpHeap::DumpHeap(int fd)
     : m_fd(fd)
 {
 }
+
 struct SendOnce
 {
     const void * m_chunk;
@@ -135,17 +170,56 @@ void DumpHeap::mywalk(const void *chunkptr, size_t chunklen,
     This->notifyChunk(chunkptr,chunklen,userptr ,userlen);
 }
 
+static int myThreadCallback(const td_thrhandle_t *th_p, void *data)
+{
+    td_thrinfo_t ti;
+
+    int fd = *static_cast<int*>(data);
+    if(TD_OK != (*td_thr_get_info_p)(thp,&ti))
+    {
+        return 0;
+    }
+    SendOnce o = { ti.ti_stkbase, ti.ti_stksize,0x8000000};
+    size_t sendSize = offsetof(SendOnce,m_backtraces);
+    sendTillEnd(fd,reinterpret_cast<const char *>(&o),sendSize);
+    sendTillEnd(fd,reinterpret_cast<const char *>(o.m_chunk),o.m_len);
+
+    return 0;
+}
+
+static void sendThreadStacks(int fd)
+{
+    ps_prochandle handle;
+    td_thragent_t * agent;   
+    if(TD_OK != td_ta_new_p(&handle,&agent))
+    {
+        return ;
+    }
+    td_ta_thr_iter_p(agent,
+            myThreadCallback,
+            &fd,
+            TD_THR_ANY_STATE,
+            TD_THR_LOWEST_PRIORITY,
+            TD_SIGNO_MASK, TD_THR_ANY_USER_FLAGS);
+    td_ta_delete_p(agent);
+}
+
 
 
 static void handleClient(int fd,struct sockaddr * )
 {
     DumpHeap dh(fd);
     dh.callWalk();
+    // send back thread stack
+    sendThreadStacks(fd);
+    // send back global variable area
     mymallinfo myinfo = dlmallinfo();
     fprintf(stderr,"free space = %f\n",((float)myinfo.fordblks) / 1024.0f);
 }
 static void * serverFunc(void *)
 {
+    //init thread db
+    initThreadDb();
     int sockfd = socket(AF_INET,SOCK_STREAM,0);
     if(sockfd == -1)
     {
