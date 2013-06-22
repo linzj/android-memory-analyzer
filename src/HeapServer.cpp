@@ -189,7 +189,7 @@ static int myThreadCallback(const td_thrhandle_t *th_p, void *data)
 
 static void sendThreadStacks(int fd)
 {
-    ps_prochandle handle;
+    ps_prochandle handle = { getpid() };
     td_thragent_t * agent;   
     if(TD_OK != td_ta_new_p(&handle,&agent))
     {
