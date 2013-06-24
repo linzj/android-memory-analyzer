@@ -38,12 +38,13 @@ LOCAL_ARM_MODE := thumb
 MY_SRC := \
 ../src/main.cpp \
 ../src/HeapServer.cpp \
+../src/DumpHeap.cpp \
 ../src/HeapInfo.cpp \
 ../src/ChunkInfo.cpp \
  
 
 LOCAL_MODULE    := memanaly
-LOCAL_CFLAGS    :=  -Werror  -ffunction-sections -fno-rtti -fvisibility=hidden -funwind-tables -DUSE_DL_PREFIX=1 -DMSPACES=1
+LOCAL_CFLAGS    :=  -Werror  -ffunction-sections -fno-rtti -fvisibility=hidden -funwind-tables -DUSE_DL_PREFIX=1 -DMSPACES=1 -DENABLE_HEAP_SEVER=1
 LOCAL_LDLIBS    :=  -Wl,--gc-sections -lc  -llog
 LOCAL_STATIC_LIBRARIES := dlmalloc
 LOCAL_SRC_FILES :=  $(MY_SRC)
