@@ -36,7 +36,7 @@ extern "C"
     mymallinfo dlmallinfo(void);
 }
 
-namespace BrowserShell {
+void sendThreadData(int fd);
 
 int sendTillEnd(int fd,const char * buffer,size_t s)
 {
@@ -55,12 +55,14 @@ int sendTillEnd(int fd,const char * buffer,size_t s)
     return 0;
 }
 
+namespace BrowserShell {
+
 static void handleClient(int fd,struct sockaddr * )
 {
     DumpHeap dh(fd);
     dh.callWalk();
     // send back thread stack
-    //sendThreadStacks(fd);
+    sendThreadData(fd);
     // send back global variable area
     mymallinfo myinfo = dlmallinfo();
     fprintf(stderr,"free space = %f\n",((float)myinfo.fordblks) / 1024.0f);

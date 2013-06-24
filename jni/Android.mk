@@ -39,6 +39,8 @@ MY_SRC := \
 ../src/main.cpp \
 ../src/HeapServer.cpp \
 ../src/DumpHeap.cpp \
+../src/ThreadData_android.cpp  \
+../src/GlobalVariable_linux.cpp \
 ../src/HeapInfo.cpp \
 ../src/ChunkInfo.cpp \
  

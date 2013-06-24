@@ -4,8 +4,6 @@
 #include "HeapInfo.h"
 #include "HeapServer.h"
 
-using BrowserShell::sendTillEnd;
-
 extern "C"
 {
     void* dlmalloc(size_t);
@@ -67,3 +65,4 @@ void DumpHeap::mywalk(const void *chunkptr, size_t chunklen,
     DumpHeap * This = reinterpret_cast<DumpHeap*>(arg);
     This->notifyChunk(chunkptr,chunklen,userptr ,userlen);
 }
+
