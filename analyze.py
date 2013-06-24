@@ -2,7 +2,9 @@ import struct,sys,math
 from hash import backtrace_element
 
 granularity = 64 * 1024
-special_magic = 0x8000000L
+special_magic = 0x80000000L
+thread_data = special_magic
+global_variable = 0x81000000L
 
 class HeapElement(object):
     def __hash__(self):
@@ -58,7 +60,7 @@ def parse(g,f):
         backtraceLen = t[2]
         backtraces = None
         special = 0
-        if backtraceLen > 0 and (special_magic & backtraceLen)  == 0:
+        if (backtraceLen > 0) and ((backtraceLen & special_magic)  == 0):
             backtraces = []
             for i in range(backtraceLen):
                 backtraceElementBuf = f.read(4)
@@ -66,12 +68,20 @@ def parse(g,f):
                     raise ParseError()
                 backtraceElement = s.unpack(backtraceElementBuf)
                 backtraces.append(backtraceElement[0])
+            print "common:{0:08x}-{1:08x}".format(addr,addr+addrLen)
         else:
 #thread data or global variable
             special = backtraceLen
+            if special:
+                if special == thread_data:
+                    print "thread:{0:08x}-{1:08x}".format(addr,addr+addrLen)
+                else:
+                    print "global:{0:08x}-{1:08x} special = {2}".format(addr,addr+addrLen,special)
+
             
         userContent = f.read(addrLen)
         if not userContent or len(userContent) != addrLen:
+            print "{0:08x},{1},{2}".format(addr,len(userContent),addrLen)
             raise ParseError()
         e = HeapElement(addr,addrLen,backtraces,userContent)
         if special:

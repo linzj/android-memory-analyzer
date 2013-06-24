@@ -21,16 +21,7 @@ static void sendOne(int fd,pthread_internal_t const * t);
 static void sendNext(int fd,pthread_internal_t const * internal)
 {
     pthread_internal_t const * cur = internal;
-    while((cur = cur->next))
-    {
-        sendOne(fd,cur);
-    }
-}
-
-static void sendPrev(int fd,pthread_internal_t * internal)
-{
-    pthread_internal_t const * cur = internal;
-    while((cur = cur->prev[0]))
+    for(;cur;cur = cur->next)
     {
         sendOne(fd,cur);
     }
@@ -45,8 +36,10 @@ static void sendOne(int fd,pthread_internal_t const * t)
     void * stackBase = NULL;
     size_t stackSize = 0;
     int rc = pthread_attr_getstack(&sattr, &stackBase, &stackSize);
-
+    size_t guard_size = 0;
+    pthread_attr_getguardsize(&sattr,&guard_size);
     pthread_attr_destroy(&sattr);
+    stackBase = static_cast<char*>(stackBase) + guard_size;
     SendOnceGeneral once = { stackBase,stackSize, 0x80000000 };
     fprintf(stderr,"LIN:sending thread %p,%d\n",once.m_chunk,once.m_len);
     sendTillEnd(fd,reinterpret_cast<const char *>(&once),sizeof(once));
@@ -56,9 +49,12 @@ static void sendOne(int fd,pthread_internal_t const * t)
 void sendThreadData(int fd)
 {
     pthread_t current =  pthread_self();
-    pthread_internal_t * current_internal = reinterpret_cast<pthread_internal_t*>(current_internal);
-    sendOne(fd,current_internal);
+    pthread_internal_t * current_internal = reinterpret_cast<pthread_internal_t*>(current);
+    // find first
+    while(current_internal->prev[0] != current_internal)
+    {
+        current_internal = current_internal->prev[0];
+    }
     sendNext(fd,current_internal);
-    sendPrev(fd,current_internal);
 }
 

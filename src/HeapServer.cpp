@@ -65,7 +65,7 @@ static void handleClient(int fd,struct sockaddr * )
     sendThreadData(fd);
     // send back global variable area
     mymallinfo myinfo = dlmallinfo();
-    fprintf(stderr,"free space = %f\n",((float)myinfo.fordblks) / 1024.0f);
+    fprintf(stderr,"LIN:free space = %f\n",((float)myinfo.fordblks) / 1024.0f);
 }
 static void * serverFunc(void *)
 {
