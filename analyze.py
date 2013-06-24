@@ -2,6 +2,7 @@ import struct,sys,math
 from hash import backtrace_element
 
 granularity = 64 * 1024
+special_magic = 0x8000000L
 
 class HeapElement(object):
     def __hash__(self):
@@ -18,7 +19,7 @@ class HeapElement(object):
         self.backtraces = backtraces
         self.userContent = userContent
         self.refCount = 0
-
+        self.special = 0
 
 class HeapGraph(object):
     def __init__(self):
@@ -55,17 +56,26 @@ def parse(g,f):
         addr = t[0]
         addrLen = t[1]
         backtraceLen = t[2]
-        backtraces = []
-        for i in range(backtraceLen):
-            backtraceElementBuf = f.read(4)
-            if not backtraceElementBuf or len(backtraceElementBuf) != 4:
-                raise ParseError()
-            backtraceElement = s.unpack(backtraceElementBuf)
-            backtraces.append(backtraceElement[0])
+        backtraces = None
+        special = 0
+        if backtraceLen > 0 and (special_magic & backtraceLen)  == 0:
+            backtraces = []
+            for i in range(backtraceLen):
+                backtraceElementBuf = f.read(4)
+                if not backtraceElementBuf or len(backtraceElementBuf) != 4:
+                    raise ParseError()
+                backtraceElement = s.unpack(backtraceElementBuf)
+                backtraces.append(backtraceElement[0])
+        else:
+#thread data or global variable
+            special = backtraceLen
+            
         userContent = f.read(addrLen)
         if not userContent or len(userContent) != addrLen:
             raise ParseError()
         e = HeapElement(addr,addrLen,backtraces,userContent)
+        if special:
+            e.special = special
         g.addElement(e)
         generalList.append(e)
     return generalList
@@ -136,20 +146,13 @@ def analyzeZeroRef(l):
 
         for he in l:
 # find all refCount = 0
-            if he.refCount == 0:
-                bt = backtrace_element(he.backtraces)
-                if bt in bset:
-                    continue
-                bset.add(bt)
+            if he.refCount == 0 and he.special == 0:
+                if he.backtraces:
+                    bt = backtrace_element(he.backtraces)
+                    if bt in bset:
+                        continue
+                    bset.add(bt)
                 writeHeapElement(he,f)
-
-
-
-            
-    
-
-
-
 
 if __name__ == '__main__':
     with open(sys.argv[1],"rb") as f:
@@ -158,7 +161,4 @@ if __name__ == '__main__':
         #t = analyzeSegment(g)
         generalList.sort()
         analyzeZeroRef(generalList)
-
-
-
 

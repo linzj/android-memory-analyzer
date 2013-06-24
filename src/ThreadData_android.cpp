@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <pthread.h>
 #include "HeapServer.h"
 typedef struct pthread_internal_t
@@ -47,6 +48,7 @@ static void sendOne(int fd,pthread_internal_t const * t)
 
     pthread_attr_destroy(&sattr);
     SendOnceGeneral once = { stackBase,stackSize, 0x80000000 };
+    fprintf(stderr,"LIN:sending thread %p,%d\n",once.m_chunk,once.m_len);
     sendTillEnd(fd,reinterpret_cast<const char *>(&once),sizeof(once));
     sendTillEnd(fd,reinterpret_cast<const char*>(stackBase),stackSize);
 }

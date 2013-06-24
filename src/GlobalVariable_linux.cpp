@@ -20,7 +20,7 @@ void sendGlobalVariable(int fd)
             unsigned long start,end;
             start = strtoul(buf,NULL,16);
             end = strtoul(buf + 9,NULL,16);
-            fprintf(stderr,"sending global variable,%08lx-%08lx",start,end);
+            fprintf(stderr,"LIN:sending global variable,%08lx-%08lx",start,end);
             SendOnceGeneral once = {reinterpret_cast<const void*>(start),end-start,0x81000000};
             sendTillEnd(fd,reinterpret_cast<const char*>(&once),sizeof(once));
             sendTillEnd(fd,reinterpret_cast<const char*>(start),end - start);
