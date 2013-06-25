@@ -16,6 +16,8 @@
 #endif // LIN_USE_LOG
 #include "DumpHeap.h"
 #include "HeapServer.h"
+#include "StopWorld.h"
+#include "MapParse.h"
 
 static const  uint16_t s_port = 3244;
 struct mymallinfo {
@@ -36,7 +38,7 @@ extern "C"
     mymallinfo dlmallinfo(void);
 }
 
-void sendThreadData(int fd);
+void sendThreadData(int fd,void ** buf,int count,MapParse::MapList const &);
 
 int sendTillEnd(int fd,const char * buffer,size_t s)
 {
@@ -59,13 +61,18 @@ namespace BrowserShell {
 
 static void handleClient(int fd,struct sockaddr * )
 {
+    stopTheWorld();
     DumpHeap dh(fd);
     dh.callWalk();
+    void * buf[64];
+    int userContextCount = getUserContext(buf,64);
+    MapParse::MapList mapList = MapParse::parseFile("/proc/self/maps");
     // send back thread stack
-    sendThreadData(fd);
+    sendThreadData(fd,buf,userContextCount,mapList);
     // send back global variable area
     mymallinfo myinfo = dlmallinfo();
     fprintf(stderr,"LIN:free space = %f\n",((float)myinfo.fordblks) / 1024.0f);
+    restartTheWorld();
 }
 static void * serverFunc(void *)
 {

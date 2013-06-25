@@ -37,12 +37,15 @@ LOCAL_ARM_MODE := thumb
 
 MY_SRC := \
 ../src/main.cpp \
-../src/HeapServer.cpp \
+../src/ChunkInfo.cpp \
 ../src/DumpHeap.cpp \
-../src/ThreadData_android.cpp  \
 ../src/GlobalVariable_linux.cpp \
 ../src/HeapInfo.cpp \
-../src/ChunkInfo.cpp \
+../src/HeapServer.cpp \
+../src/MapParse.cpp \
+../src/StopWorld_linux.cpp \
+../src/ThreadData_linux.cpp  \
+../src/ThreadData_linux_arm.cpp  \
  
 
 LOCAL_MODULE    := memanaly

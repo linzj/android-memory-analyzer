@@ -1,8 +1,7 @@
 #include "StopWorld.h"
 #include <signal.h>
-#include <syscall.h>
+#include <sys/syscall.h>
 #include <pthread.h>
-#include <ucontext.h>
 #include <unistd.h>
 #include <algorithm>
 
@@ -36,7 +35,11 @@ static void   myaction(int , siginfo_t * info, void *ucontext)
 bool stopTheWorld(void)
 {
     int ret;
-    struct sigaction newAction = {myaction,0,SA_SIGINFO,NULL}; 
+    struct sigaction newAction ;  
+    newAction.sa_sigaction = myaction;
+    newAction.sa_mask = 0;
+    newAction.sa_flags = SA_SIGINFO;
+    newAction.sa_restorer = NULL; 
     mytid = syscall(__NR_gettid,0);
     g_contextLen = 0;    
     ret = sigaction(47,&newAction,&oldAction);
@@ -45,6 +48,7 @@ bool stopTheWorld(void)
         return false;
     }
     kill(getpid(),-47);
+    return true;
 }
 
 void restartTheWorld(void)
