@@ -117,7 +117,7 @@ def analyzeSegment(g):
                 writeHeapElement(e,f)
     return type1,type2,type3
 
-def searchInList(a, x, lo=0, hi=None):
+def searchInListStrict(a, x, lo=0, hi=None):
     if hi is None:
         hi = len(a)
     while lo < hi:
@@ -129,6 +129,21 @@ def searchInList(a, x, lo=0, hi=None):
             hi = mid
         else:
             return a[mid]
+    return None
+
+def searchInListLoose(a, x, lo=0, hi=None):
+    if hi is None:
+        hi = len(a)
+    while lo < hi:
+        mid = (lo+hi)//2
+        e = a[mid]
+        midval = e.addr
+        if (midval <= x) and ((midval + e.size) >= x):
+            return e;
+        if midval < x:
+            lo = mid+1
+        elif midval > x: 
+            hi = mid
     return None
 
 
@@ -147,7 +162,7 @@ def analyzeZeroRef(l):
 
             if (val < lowerBound) or (val > upperBound) : 
                 continue
-            heRef = searchInList(l,val)
+            heRef = searchInListLoose(l,val)
             if heRef:
                 heRef.refCount += 1
 

@@ -27,7 +27,7 @@ void MapParse::parseLine(const char * line)
     
     end = strtoul(checkPoint,NULL,16);
     const char * pathStart = line + 25 + sizeof(void*) * 6;
-    if(pathStart >= lineEnd && pathStart[0] != '/')
+    if(pathStart >= lineEnd || pathStart[0] != '/')
     {
         pathStart = NULL;
     }
