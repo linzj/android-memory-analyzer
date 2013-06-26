@@ -11,7 +11,6 @@ void sendStackData(int fd,void ** buf,int count,MapParse::MapList const & list);
 
 void sendThreadData(int fd,void ** buf,int count,MapParse::MapList const &list)
 {
-    __android_log_print(ANDROID_LOG_DEBUG,"LIN","sending %d threads data\n",count);
     sendStackData(fd,buf,count,list);
 }
 

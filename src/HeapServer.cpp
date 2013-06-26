@@ -39,6 +39,7 @@ extern "C"
 }
 
 void sendThreadData(int fd,void ** buf,int count,MapParse::MapList const &);
+void sendGlobalVariable(int fd,MapParse::MapList const & list);
 
 int sendTillEnd(int fd,const char * buffer,size_t s)
 {
@@ -70,6 +71,7 @@ static void handleClient(int fd,struct sockaddr * )
     // send back thread stack
     sendThreadData(fd,buf,userContextCount,mapList);
     // send back global variable area
+    sendGlobalVariable(fd,mapList);
     mymallinfo myinfo = dlmallinfo();
     fprintf(stderr,"LIN:free space = %f\n",((float)myinfo.fordblks) / 1024.0f);
     restartTheWorld();

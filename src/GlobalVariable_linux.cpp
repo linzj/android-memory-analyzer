@@ -1,31 +1,21 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include <stddef.h>
 #include "HeapServer.h"
+#include "MapParse.h"
 
-void sendGlobalVariable(int fd)
+void sendGlobalVariable(int fd,MapParse::MapList const & list)
 {
-    FILE * maps = fopen("/proc/self/maps","r");
-    while(true)
+    for(MapParse::MapList::const_iterator i = list.begin(); i != list.end() ; ++i)
     {
-        static const int BUF_SIZE = 256;
-        static const int slash_index = 25 + sizeof(void*) * 6;
-        char buf[BUF_SIZE];
-        fgets(buf,BUF_SIZE,maps);
-        if(feof(maps))
-        {
-            break;
-        }
-        if(strlen(buf) > slash_index && strstr(buf,"rw-p") && buf[slash_index] == '/')
+        if(((i->m_protect & 7)  == (MapElement::READ | MapElement::WRITE)) 
+            && i->m_path.size())
         {
             unsigned long start,end;
-            start = strtoul(buf,NULL,16);
-            end = strtoul(buf + 9,NULL,16);
-            fprintf(stderr,"LIN:sending global variable,%08lx-%08lx",start,end);
+            start = i->m_start;
+            end = i->m_end;
             SendOnceGeneral once = {reinterpret_cast<const void*>(start),end-start,0x81000000};
             sendTillEnd(fd,reinterpret_cast<const char*>(&once),sizeof(once));
             sendTillEnd(fd,reinterpret_cast<const char*>(start),end - start);
         }
     }
-    fclose(maps);
 }
 

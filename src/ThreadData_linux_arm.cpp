@@ -38,13 +38,13 @@ struct ucontext {
 };
 
 
-static bool mycompare(MapElement const & e,unsigned start)
+static int mycompare(MapElement const & e,unsigned start)
 {
-    if(e.m_start <= start )
+    if(e.m_start < start )
     {
-        return true;
+        return 1;
     }
-    return false;
+    return 0;
 }
 
 
@@ -55,20 +55,16 @@ void sendStackData(int fd,void ** buf,int count,MapParse::MapList const & list)
         ucontext * context = static_cast<ucontext*>(buf[i]);
         unsigned long start = context->uc_mcontext.arm_sp;
         MapParse::MapList::const_iterator found = std::lower_bound(list.begin(),list.end(),start,mycompare);
-        __android_log_print(ANDROID_LOG_DEBUG,"LIN","sp = %08lx\n",start);
         if(found != list.end())
         {
             if(found->m_start != start)
                 --found;
-            __android_log_print(ANDROID_LOG_DEBUG,"LIN","found!:start=%08lx,end=%08lx\n",found->m_start,found->m_end);
-            __android_log_print(ANDROID_LOG_DEBUG,"LIN","found!:%d %d %d\n",(found->m_start <= start),(found->m_end >= start),((found->m_protect & 7) == (MapElement::READ | MapElement::WRITE)));
         }
         if((found->m_start <= start)
             && (found->m_end >= start)
             && ((found->m_protect & 7) == (MapElement::READ | MapElement::WRITE)))
         {
-            __android_log_print(ANDROID_LOG_DEBUG,"LIN","sending thread %08lx-%08lx\n",start,found->m_end);
-            SendOnceGeneral once = {reinterpret_cast<void*>(start),found->m_end,0x80000000};
+            SendOnceGeneral once = {reinterpret_cast<void*>(start),found->m_end - start,0x80000000};
             sendTillEnd(fd,reinterpret_cast<const char*>(&once),sizeof(once));
             sendTillEnd(fd,reinterpret_cast<const char*>(start),found->m_end - start);
         }

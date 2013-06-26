@@ -39,8 +39,9 @@ def writeHeapElement(e,f):
     print >>f,"Address: {0:08x}".format(e.addr)
     print >>f,"Size: {0}".format(e.size)
     print >>f,"Backtraces:"
-    for b in e.backtraces:
-        print >>f , "0x{0:08X}".format(b)
+    if e.backtraces:
+        for b in e.backtraces:
+            print >>f , "0x{0:08X}".format(b)
     print >>f,""
 
 class ParseError(Exception):
@@ -68,7 +69,6 @@ def parse(g,f):
                     raise ParseError()
                 backtraceElement = s.unpack(backtraceElementBuf)
                 backtraces.append(backtraceElement[0])
-            print "common:{0:08x}-{1:08x}".format(addr,addr+addrLen)
         else:
 #thread data or global variable
             special = backtraceLen
