@@ -32,11 +32,13 @@ void MapParse::parseLine(const char * line)
         return;
     }
     const char * protectStart = strstr(line," ");
-    if(!protectStart && ((protectStart + 4) >= lineEnd))
+    if(!protectStart && ((protectStart + 5) >= lineEnd))
     {
         return;
     }
+    protectStart++;
     unsigned protect = 0;
+
     if(protectStart[0] == 'r')
     {
         protect |= MapElement::READ;

@@ -4,6 +4,8 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <algorithm>
+#include <errno.h>
+#include <android/log.h>
 
 void sendUcontext(int fd,void* ucontext);
 void storeOthersContext(int fd);
@@ -14,22 +16,34 @@ static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 static void * g_context[64];
 static int g_contextLen;
+static bool g_shouldSet;
 
 static void   myaction(int , siginfo_t * info, void *ucontext)
 {
-    if(syscall(__NR_gettid,0) == mytid)
-    {
-        // mytid just continue
-    }
-    else
-    {
-        pthread_mutex_lock(&mutex);
-        // store the context
-        if(g_contextLen != 64)
-            g_context[g_contextLen++] = ucontext;        
-        pthread_cond_wait(&cond,&mutex);
-        pthread_mutex_unlock(&mutex);
-    }
+    __android_log_print(ANDROID_LOG_DEBUG,"LIN","thread %d enter myaction\n",syscall(__NR_gettid,0));
+    // if(syscall(__NR_gettid,0) == mytid)
+    // {
+    //     // mytid just continue
+    //     // wait for other threads to proceed
+    //     sleep(1);
+    //     pthread_mutex_lock(&mutex);
+    //     g_shouldSet = false;
+    //     pthread_mutex_unlock(&mutex);
+    // }
+    // else
+    // {
+    //     pthread_mutex_lock(&mutex);
+    //     if(!g_shouldSet)
+    //     {
+    //         pthread_mutex_unlock(&mutex);
+    //         return;
+    //     }
+    //     // store the context
+    //     if(g_contextLen != 64)
+    //         g_context[g_contextLen++] = ucontext;        
+    //     pthread_cond_wait(&cond,&mutex);
+    //     pthread_mutex_unlock(&mutex);
+    // }
 }
 //this function is not thread safe!
 bool stopTheWorld(void)
@@ -47,7 +61,11 @@ bool stopTheWorld(void)
     {
         return false;
     }
-    kill(getpid(),-47);
+    g_shouldSet = true;
+    if(kill(getpid(),47))
+    {
+        __android_log_print(ANDROID_LOG_ERROR,"LIN","failed to send signal:%s\n",strerror(errno));
+    }
     return true;
 }
 
