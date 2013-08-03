@@ -44,8 +44,17 @@ MY_SRC := \
 ../src/HeapServer.cpp \
 ../src/MapParse.cpp \
 ../src/StopWorld_linux.cpp \
-../src/ThreadData_linux.cpp  \
-../src/ThreadData_linux_arm.cpp  \
+../src/ThreadData_linux.cpp  
+
+ifeq ($(TARGET_ARCH_ABI), armeabi)
+MY_SRC += \
+../src/ThreadData_linux_arm.cpp  
+endif
+
+ifeq ($(TARGET_ARCH_ABI), x86)
+MY_SRC += \
+../src/ThreadData_linux_x86.cpp  
+endif
  
 
 LOCAL_MODULE    := memanaly

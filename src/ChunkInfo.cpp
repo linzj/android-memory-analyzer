@@ -27,7 +27,7 @@ _Unwind_Reason_Code trace_function(_Unwind_Context *context, void *arg)
     }
     else
     {
-        return _URC_FAILURE; // force break
+        return static_cast<_Unwind_Reason_Code>(1); // force break
     }
     return _URC_NO_REASON;
 }
