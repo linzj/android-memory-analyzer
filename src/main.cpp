@@ -7,6 +7,7 @@
 #include "dlmalloc.h"
 #include "HeapInfo.h"
 #include "HeapServer.h"
+#include <pthread.h>
 
 typedef uint32_t uptr;
 #define SIZE_T_SIZE         (sizeof(size_t))
@@ -29,6 +30,39 @@ struct MallocDebug {
   void* (*memalign)(uptr alignment, uptr bytes);
 };
 
+#define WRAP(x) _##x
+
+static void* _malloc(uptr bytes);
+static void  _free(void* data);
+static void* _calloc(uptr n_elements, uptr elem_size);
+static void* _realloc(void* oldMem, uptr bytes);
+static void* _memalign(uptr alignment, uptr bytes);
+const MallocDebug _malloc_dispatch __attribute__((aligned(32))) = {
+  WRAP(malloc), WRAP(free), WRAP(calloc), WRAP(realloc), WRAP(memalign)
+};
+#undef WRAP
+
+#define WRAP(x) dl##x
+const MallocDebug _dlmalloc_dispatch __attribute__((aligned(32))) = {
+  WRAP(malloc), WRAP(free), WRAP(calloc), WRAP(realloc), WRAP(memalign)
+};
+
+static void overrideMalloc()
+{
+    extern const MallocDebug* __libc_malloc_dispatch;
+
+    __libc_malloc_dispatch = &_malloc_dispatch;
+}
+
+static pthread_mutex_t restoreMutex = PTHREAD_MUTEX_INITIALIZER;
+
+static void restoreMalloc()
+{
+    extern const MallocDebug* __libc_malloc_dispatch;
+
+    __libc_malloc_dispatch = &_dlmalloc_dispatch;
+}
+
 static void* _malloc(uptr bytes)
 {
     void * data = dlmalloc(bytes);
@@ -36,18 +70,27 @@ static void* _malloc(uptr bytes)
     {
         return data;
     }
+    pthread_mutex_lock(&restoreMutex);
+    restoreMalloc();
     void * chunkaddr= reinterpret_cast<void*>(mem2chunk(data));
     ChunkInfo info;
     ChunkInfo::get(info,chunkaddr);
     HeapInfo::registerChunkInfo((void*)chunkaddr,info);
+    overrideMalloc();
+    pthread_mutex_unlock(&restoreMutex);
     return data;
 }
 
 static void  _free(void* data)
 {
+    pthread_mutex_lock(&restoreMutex);
+    restoreMalloc();
     HeapInfo::unregisterChunkInfo((void*)mem2chunk(data));
     dlfree(data);
+    overrideMalloc();
+    pthread_mutex_unlock(&restoreMutex);
 }
+
 static void* _calloc(uptr n_elements, uptr elem_size)
 {
     void * data = dlcalloc(n_elements,elem_size);
@@ -55,10 +98,14 @@ static void* _calloc(uptr n_elements, uptr elem_size)
     {
         return data;
     }
+    pthread_mutex_lock(&restoreMutex);
+    restoreMalloc();
     void * chunkaddr= reinterpret_cast<void*>(mem2chunk(data));
     ChunkInfo info;
     ChunkInfo::get(info,chunkaddr);
     HeapInfo::registerChunkInfo((void*)chunkaddr,info);
+    overrideMalloc();
+    pthread_mutex_unlock(&restoreMutex);
     return data;
 }
 
@@ -67,12 +114,16 @@ static void* _realloc(void* oldMem, uptr bytes)
     void * newMem = dlrealloc(oldMem,bytes);
     if(newMem)
     {
+        pthread_mutex_lock(&restoreMutex);
+        restoreMalloc();
         HeapInfo::unregisterChunkInfo((void*)mem2chunk(oldMem));
         void * data = newMem;
         void * chunkaddr= reinterpret_cast<void*>(mem2chunk(data));
         ChunkInfo info;
         ChunkInfo::get(info,chunkaddr);
         HeapInfo::registerChunkInfo((void*)chunkaddr,info);
+        overrideMalloc();
+        pthread_mutex_unlock(&restoreMutex);
     }
     return newMem;
 }
@@ -84,18 +135,17 @@ static void* _memalign(uptr alignment, uptr bytes)
     {
         return data;
     }
+    pthread_mutex_lock(&restoreMutex);
+    restoreMalloc();
     void * chunkaddr= reinterpret_cast<void*>(mem2chunk(data));
     ChunkInfo info;
     ChunkInfo::get(info,chunkaddr);
     HeapInfo::registerChunkInfo((void*)chunkaddr,info);
+    overrideMalloc();
+    pthread_mutex_unlock(&restoreMutex);
     return data;
 }
 
-#define WRAP(x) _##x
-
-const MallocDebug _malloc_dispatch __attribute__((aligned(32))) = {
-  WRAP(malloc), WRAP(free), WRAP(calloc), WRAP(realloc), WRAP(memalign)
-};
 
 class Constructor
 {
@@ -111,12 +161,6 @@ public:
         
     }
 private:
-    static void overrideMalloc()
-    {
-        extern const MallocDebug* __libc_malloc_dispatch;
-
-        __libc_malloc_dispatch = &_malloc_dispatch;
-    }
 
     // static void resetStdIo(void)
     // {
