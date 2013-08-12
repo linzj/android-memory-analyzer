@@ -104,12 +104,14 @@ static void recursive(int a)
     }
 }
 
+extern void haha(void *);
+
 int main()
 {
     g_old = overrideMalloc();
     // recursive(0);
     void * a = malloc(10);
-    free(a);
+    haha(a);
     return 0;
 }
 
@@ -159,3 +161,4 @@ static void* _memalign(uptr alignment, uptr bytes)
     overrideMalloc();
     return ret;
 }
+

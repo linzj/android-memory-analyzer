@@ -71,6 +71,7 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := thumb
 MY_SRC := \
 ../src/test-unwind.cpp \
+../src/test-unwind-free.cpp \
 
 
 LOCAL_CFLAGS    :=  -Werror  -ffunction-sections -fno-rtti -fvisibility=hidden -funwind-tables -DUSE_DL_PREFIX=1 -DMSPACES=1 -DENABLE_HEAP_SEVER=1 -g 
