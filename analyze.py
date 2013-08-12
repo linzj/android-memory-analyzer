@@ -1,4 +1,4 @@
-import struct,sys,math
+import struct,sys,math,operator
 from hash import backtrace_element
 from optparse import OptionParser
 
@@ -191,7 +191,9 @@ def printBackTrace(generalList):
         else:
             myDict[bt] = e.size
 
-    for item in myDict.items():
+    myitem = sorted(myDict.iteritems(), key=operator.itemgetter(1))
+
+    for item in myitem:
         print "Allocation: {0}".format(item[1])
         for b in item[0]._backtraces:
             print  "0x{0:08X}".format(b)

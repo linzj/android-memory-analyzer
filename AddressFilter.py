@@ -78,8 +78,14 @@ def parseMap(fileName):
             line = f.readline()
             if not line:
                 break
-            if line[20] != 'x':
-                continue
+            try:
+                if line[20] != 'x':
+                    continue
+            except Exception as e:
+                print e
+                print line
+                sys.exit(1)
+
             r1 = int(line[0:8],16)
             r2 = int(line[9:17],16)
             path = line[49:].rstrip()
@@ -149,7 +155,7 @@ def updateNumberDict(number,mapEntry,numberDict):
 
 def handleJob(job,full_path):
     jobNumbers = job.relativeAddresses()
-    command_line = "arm-linux-androideabi-addr2line -Cfe " + full_path + " " + " ".join([ "{0:08x} ".format(num) for num in jobNumbers ])
+    command_line = "addr2line -Cfe " + full_path + " " + " ".join([ "{0:08x} ".format(num) for num in jobNumbers ])
     p = subprocess.Popen(shlex.split(command_line),stdout=subprocess.PIPE)
     jobNumberIter = iter(jobNumbers)
     ret = []
@@ -186,7 +192,7 @@ def findInSearchPath(search_path,jobName):
 
 
 def handleJobs(numberDict,SoJob,search_path):
-    pool = multiprocessing.Pool(3)
+    pool = multiprocessing.Pool(1)
     results = []
     for job in SoJob:
         fullpath = findInSearchPath(search_path,job[0])
