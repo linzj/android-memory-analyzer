@@ -1,5 +1,6 @@
 import struct,sys,math
 from hash import backtrace_element
+from optparse import OptionParser
 
 granularity = 64 * 1024
 special_magic = 0x80000000L
@@ -179,11 +180,37 @@ def analyzeZeroRef(l):
                     bset.add(bt)
                 writeHeapElement(he,f)
 
+def printBackTrace(generalList):
+    myDict = {}
+    for e in generalList:
+        if not e.backtraces:
+            continue
+        bt = backtrace_element(e.backtraces)
+        if bt in myDict:
+            myDict[bt] += e.size
+        else:
+            myDict[bt] = e.size
+
+    for item in myDict.items():
+        print "Allocation: {0}".format(item[1])
+        for b in item[0]._backtraces:
+            print  "0x{0:08X}".format(b)
+        print ""
+
+
 if __name__ == '__main__':
-    with open(sys.argv[1],"rb") as f:
+    myoptparser = OptionParser()
+    myoptparser.add_option("-b","--backtrace-only",help="only print backtrace to stdout",action="store_true",dest="backtrace_only")
+    myargTuple = myoptparser.parse_args() 
+    generalList = []
+    print myargTuple
+    with open(myargTuple[1][0],"rb") as f:
         g = HeapGraph()
         generalList = parse(g,f)
         #t = analyzeSegment(g)
-        generalList.sort()
+    generalList.sort()
+    if myargTuple[0].backtrace_only:
+        printBackTrace(generalList)
+    else:
         analyzeZeroRef(generalList)
 
