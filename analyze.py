@@ -147,26 +147,24 @@ def searchInListLoose(a, x, lo=0, hi=None):
             hi = mid
     return None
 
-
-def analyzeZeroRef(l):
-    s = struct.Struct("<L")
+def analyzeHeapElementMember(he,l,func):
     lowerBound = l[0].addr
     upperBound = l[-1].addr
-    print "lowerBound {0:08x} ,upperBound {1:08x}".format(lowerBound,upperBound)
-    for he in l:
-        length = len(he.userContent)
-        if length < 4:
+    s = struct.Struct("<L")
+    length = len(he.userContent)
+    if length < 4:
+        return
+    length /= 4
+    for i in range(length):
+        val = s.unpack_from(he.userContent, i * 4)[0]
+
+        if (val < lowerBound) or (val > upperBound) : 
             continue
-        length /= 4
-        for i in range(length):
-            val = s.unpack_from(he.userContent, i * 4)[0]
+        heRef = searchInListLoose(l,val)
+        if heRef:
+            func(heRef)
 
-            if (val < lowerBound) or (val > upperBound) : 
-                continue
-            heRef = searchInListLoose(l,val)
-            if heRef:
-                heRef.refCount += 1
-
+def writeRefZeroAndNotSpecial(l):
     with open("/tmp/analyze_zero","w") as f:
         bset = set()
 
@@ -179,6 +177,35 @@ def analyzeZeroRef(l):
                         continue
                     bset.add(bt)
                 writeHeapElement(he,f)
+
+
+def analyzeZeroRef(l):
+    def callbackFunc(heRef):
+        heRef.refCount += 1
+    for he in l:
+        analyzeHeapElementMember(he,l,callbackFunc)
+    writeRefZeroAndNotSpecial(l)
+
+
+def analyzeMarkAndSweep(generalList):
+    markStack = []
+# construct the strong roots
+    for e in generalList:
+        if e.special:
+            e.refCount = 1 #actually a mark
+            markStack.append(e)
+
+    def callbackFunc(he):
+        if not he.refCount:
+            he.refCount = 1 #actually a mark
+            markStack.append(he)
+
+    while markStack:
+        he = markStack.pop()
+        analyzeHeapElementMember(he,generalList,callbackFunc)
+# mark complete
+    writeRefZeroAndNotSpecial(generalList)
+    
 
 def printBackTrace(generalList):
     myDict = {}
@@ -203,6 +230,7 @@ def printBackTrace(generalList):
 if __name__ == '__main__':
     myoptparser = OptionParser()
     myoptparser.add_option("-b","--backtrace-only",help="only print backtrace to stdout",action="store_true",dest="backtrace_only")
+    myoptparser.add_option("-m","--mark-and-sweep",help="only print backtrace to stdout",action="store_true",dest="mark_and_sweep")
     myargTuple = myoptparser.parse_args() 
     generalList = []
     with open(myargTuple[1][0],"rb") as f:
@@ -212,6 +240,8 @@ if __name__ == '__main__':
     generalList.sort()
     if myargTuple[0].backtrace_only:
         printBackTrace(generalList)
+    elif myargTuple[0].mark_and_sweep:
+        analyzeMarkAndSweep(generalList)
     else:
         analyzeZeroRef(generalList)
 
