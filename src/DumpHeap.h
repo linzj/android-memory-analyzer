@@ -5,7 +5,7 @@
 class DumpHeap
 {
     public:
-        explicit DumpHeap(int fd);
+        explicit DumpHeap(int fd,bool sendUserData = true);
 
         void callWalk(void);
 
@@ -17,7 +17,8 @@ class DumpHeap
                 void *arg);
 
     private:
-        int m_fd;
+        int fd_;
+        bool sendUserData_;
 };
 
 #endif /* DUMPHEAP_H */

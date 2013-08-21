@@ -1,19 +1,18 @@
 #include <stddef.h>
 #include "HeapServer.h"
-#include "MapParse.h"
-#include <android/log.h>
+#include "HeapSnapshotHandler.h"
 
 static void sendElement(int fd,MapParse::MapList::const_iterator const & i )
 {
     unsigned long start,end;
     start = i->m_start;
     end = i->m_end;
-    SendOnceGeneral once = {reinterpret_cast<const void*>(start),end-start,0x81000000};
+    SendOnceGeneral once = {reinterpret_cast<const void*>(start),end-start,0x81000000,DATA_ATTR_USER_CONTENT};
     sendTillEnd(fd,reinterpret_cast<const char*>(&once),sizeof(once));
     sendTillEnd(fd,reinterpret_cast<const char*>(start),end - start);
 }
 
-void sendGlobalVariable(int fd,MapParse::MapList const & list)
+void HeapSnapshotHandler::sendGlobalVariable(int fd,MapParse::MapList const & list)
 {
     for(MapParse::MapList::const_iterator i = list.begin(); i != list.end() ; ++i)
     {

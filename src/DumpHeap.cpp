@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdint.h>
 #include "DumpHeap.h"
 #include "ChunkInfo.h"
 #include "HeapInfo.h"
@@ -14,16 +15,18 @@ extern "C"
             void *harg);
 }
 
-DumpHeap::DumpHeap(int fd)
-    : m_fd(fd)
+DumpHeap::DumpHeap(int fd,bool sendUserData) : 
+     fd_(fd)
+    ,sendUserData_(sendUserData)
 {
 }
 
 struct SendOnce
 {
     const void * m_chunk;
-    size_t m_len;
-    size_t m_backtracesLen;
+    uint32_t m_len;
+    uint32_t m_backtracesLen;
+    uint32_t m_dataAttrib; // for this data's attributes
     const void * m_backtraces[ChunkInfo::MAX_BACKTRACES];
 };
 
@@ -47,8 +50,18 @@ void DumpHeap::notifyChunk( const void * chunk,size_t len,const void * userptr ,
         {
            once.m_backtracesLen = 0;
         }
-        sendTillEnd(m_fd,reinterpret_cast<const char *>(&once),sendSize);
-        sendTillEnd(m_fd,static_cast<const char *>(userptr),userlen);
+
+        if(sendUserData_)
+        {
+            once.m_dataAttrib |= DATA_ATTR_USER_CONTENT;
+        }
+
+        sendTillEnd(fd_,reinterpret_cast<const char *>(&once),sendSize);
+
+        if(sendUserData_)
+        {
+            sendTillEnd(fd_,static_cast<const char *>(userptr),userlen);
+        }
     }
 }
 

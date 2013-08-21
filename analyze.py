@@ -48,20 +48,24 @@ def writeHeapElement(e,f):
 class ParseError(Exception):
     pass
 
+DATA_ATTR_USER_CONTENT = 0x1
+
 def parse(g,f):
     s = struct.Struct("<L")
-    st = struct.Struct("<LLL")
+    st = struct.Struct("<LLLL")
     generalList = []
     while True:
-        Buf = f.read(12)
-        if not Buf or len(Buf) != 12:
+        Buf = f.read(16)
+        if not Buf or len(Buf) != 16:
             break
         t = st.unpack(Buf)
         addr = t[0]
         addrLen = t[1]
         backtraceLen = t[2]
+        dataAttrib = t[3]
         backtraces = None
         special = 0
+        #print "{0:08x},{1:08x},{2:08x},{3:08x}".format(addr,addrLen,backtraceLen,dataAttrib)
         if (backtraceLen > 0) and ((backtraceLen & special_magic)  == 0):
             backtraces = []
             for i in range(backtraceLen):
@@ -79,11 +83,12 @@ def parse(g,f):
                 else:
                     print "global:{0:08x}-{1:08x} special = {2}".format(addr,addr+addrLen,special)
 
-            
-        userContent = f.read(addrLen)
-        if not userContent or len(userContent) != addrLen:
-            print "{0:08x},{1},{2}".format(addr,len(userContent),addrLen)
-            raise ParseError()
+        userContent = None
+        if (dataAttrib & DATA_ATTR_USER_CONTENT) != 0 :     
+            userContent = f.read(addrLen)
+            if not userContent or len(userContent) != addrLen:
+                print "{0:08x},{1},{2}".format(addr,len(userContent),addrLen)
+                raise ParseError()
         e = HeapElement(addr,addrLen,backtraces,userContent)
         if special:
             e.special = special
@@ -151,6 +156,8 @@ def analyzeHeapElementMember(he,l,func):
     lowerBound = l[0].addr
     upperBound = l[-1].addr
     s = struct.Struct("<L")
+    if not he.userContent:
+        return
     length = len(he.userContent)
     if length < 4:
         return

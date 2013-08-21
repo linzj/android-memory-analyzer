@@ -14,6 +14,8 @@
 #
 LOCAL_PATH := $(call my-dir)
 
+ifeq ($(TEST_MODE_ONLY),)
+
 include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 #LOCAL_SHARED_LIBRARIES := mylib
@@ -44,7 +46,9 @@ MY_SRC := \
 ../src/HeapServer.cpp \
 ../src/MapParse.cpp \
 ../src/StopWorld_linux.cpp \
-../src/ThreadData_linux.cpp  
+../src/ThreadData_linux.cpp \
+../src/HeapSnapshotHandler.cpp \
+../src/LightSnapshotHandler.cpp
 
 ifeq ($(TARGET_ARCH_ABI), armeabi)
 MY_SRC += \
@@ -66,12 +70,13 @@ LOCAL_SRC_FILES :=  $(MY_SRC)
 include $(BUILD_SHARED_LIBRARY)
 
 ################################################################################
+else
 
 include $(CLEAR_VARS)
 LOCAL_ARM_MODE := thumb
 MY_SRC := \
-../src/test-unwind.cpp \
-../src/test-unwind-free.cpp \
+../test/test-unwind.cpp \
+../test/test-unwind-free.cpp \
 
 
 LOCAL_CFLAGS    :=  -Werror  -ffunction-sections -fno-rtti -fvisibility=hidden -funwind-tables -DUSE_DL_PREFIX=1 -DMSPACES=1 -DENABLE_HEAP_SEVER=1 -g 
@@ -81,3 +86,4 @@ LOCAL_MODULE := test-unwind
 
 include $(BUILD_EXECUTABLE)
 
+endif #TEST_MODE_ONLY
