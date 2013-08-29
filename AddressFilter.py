@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import sys,re,multiprocessing,subprocess,shlex
+import sys,re,multiprocessing,subprocess,shlex,traceback
 import os.path
 from Print import printDebug,printError
 hexRe = re.compile('([0-9a-fA-F]{8})')
@@ -78,8 +78,14 @@ def parseMap(fileName):
             line = f.readline()
             if not line:
                 break
-            if line[20] != 'x':
-                continue
+            try:
+                if line[20] != 'x':
+                    continue
+            except Exception as e:
+                print e
+                print line
+                sys.exit(1)
+
             r1 = int(line[0:8],16)
             r2 = int(line[9:17],16)
             path = line[49:].rstrip()
@@ -147,25 +153,99 @@ def updateNumberDict(number,mapEntry,numberDict):
         addrData.relativeAddress = number - mapEntry.r1
         numberDict[number] = addrData
 
+class Addr2LineParser(object):
+    def __init__(self,sema):
+        self.sema_ = sema
+
+    def parse(self,line):
+        InlineLine = self.parseInlineStatment(line)
+        if InlineLine:
+            myTuple = self.tryParseAtStatment(InlineLine)
+            if not myTuple:
+                self.sema_.onUnknowParse()
+                return
+            self.sema_.onInlineStatement(myTuple[0],myTuple[1])
+            return
+
+        myTuple = self.tryParseAtStatment(line)
+        if myTuple:
+            self.sema_.onAtStatement(myTuple[0],myTuple[1])
+        else:
+            self.sema_.onUnknowParse()
+
+    def tryParseAtStatment(self,line):
+        rindex = line.rfind(' at ')
+        if rindex == -1:
+            return None
+        return (line[:rindex],line[rindex + 4 :])
+
+    def parseInlineStatment(self,line):
+        index = line.find('(inlined by) ')
+        if index == -1:
+            return None
+        return line[index + 13:]
+
+class WrongSemanticError(Exception):
+    pass
+
+class MySema(object):
+
+    def __init__(self,callBack):
+        self.funcName_ = None
+        self.line_ = None
+        self.callBack_ = callBack
+
+    def onAtStatement(self,funcName,line):
+        if self.funcName_:
+            self.onFind()
+        self.funcName_ = funcName
+        self.line_ = line
+
+    def onInlineStatement(self,funcName,line):
+        self.funcName_ = funcName
+        self.line_ = line
+
+    def onUnknowParse(self):
+        raise WrongSemanticError()
+
+    def onFind(self):
+        self.callBack_() 
+        self.funcName_ = None
+
+    def onEnd(self):
+        self.funcName_ = None
+        self.callBack_()
+
+
+
+
 def handleJob(job,full_path):
     jobNumbers = job.relativeAddresses()
-    command_line = "arm-linux-androideabi-addr2line -Cfe " + full_path + " " + " ".join([ "{0:08x} ".format(num) for num in jobNumbers ])
+    command_line = "addr2line -piCfe " + full_path + " " + " ".join([ "{0:08x} ".format(num) for num in jobNumbers ])
     p = subprocess.Popen(shlex.split(command_line),stdout=subprocess.PIPE)
     jobNumberIter = iter(jobNumbers)
     ret = []
+    sema = None
+    def callBack():
+        jobNumber = jobNumberIter.next()
+        ret.append((jobNumber + job.offset,(sema.funcName_,sema.line_)))
+    sema = MySema(callBack)
+        
+    parser = Addr2LineParser(sema)
     #Count = 0
     while True:
-#line1 for function name
-#line2 for line info
-        #print Count
-        #Count = Count + 1
-        line1 = p.stdout.readline().rstrip()
-        line2 = p.stdout.readline().rstrip()
-        #print (line1,line2)
-        if not line1 or not line2:
+        line = p.stdout.readline()
+        if not line:
             break
-        jobNumber = jobNumberIter.next()
-        ret.append((jobNumber + job.offset,(line1,line2)))
+        line = line.rstrip()
+        try:
+            parser.parse(line)
+        except Exception as e:
+            traceback.print_exc(file=sys.stderr)
+            raise e
+
+
+    callBack()
     return ret
 
 def findInSearchPath(search_path,jobName):
@@ -186,14 +266,16 @@ def findInSearchPath(search_path,jobName):
 
 
 def handleJobs(numberDict,SoJob,search_path):
-    pool = multiprocessing.Pool(3)
+    pool_num = 3
+    pool = multiprocessing.Pool(pool_num)
     results = []
     for job in SoJob:
         fullpath = findInSearchPath(search_path,job[0])
         if fullpath:
             jobEntry = job[1]
-            if jobEntry.size() > 5000:
-                jobEntries = jobEntry.split(2550)
+            if pool_num > 1:
+                splitSize = (jobEntry.size() / pool_num ) + 1
+                jobEntries = jobEntry.split(splitSize)
                 for _jobEntry in jobEntries:
                     results.append(pool.apply_async(handleJob,(_jobEntry,fullpath)))
             else:

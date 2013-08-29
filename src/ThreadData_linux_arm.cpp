@@ -64,7 +64,7 @@ void sendStackData(int fd,void ** buf,int count,MapParse::MapList const & list)
             && (found->m_end >= start)
             && ((found->m_protect & 7) == (MapElement::READ | MapElement::WRITE)))
         {
-            SendOnceGeneral once = {reinterpret_cast<void*>(start),found->m_end - start,0x80000000};
+            SendOnceGeneral once = {reinterpret_cast<void*>(start),found->m_end - start,0x80000000,DATA_ATTR_USER_CONTENT};
             sendTillEnd(fd,reinterpret_cast<const char*>(&once),sizeof(once));
             sendTillEnd(fd,reinterpret_cast<const char*>(start),found->m_end - start);
         }

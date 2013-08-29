@@ -3,11 +3,14 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdint.h>
+#include <pthread.h>
+
 #include "ChunkInfo.h"
 #include "dlmalloc.h"
 #include "HeapInfo.h"
 #include "HeapServer.h"
-#include <pthread.h>
+#include "HeapSnapshotHandler.h"
+#include "LightSnapshotHandler.h"
 
 typedef uint32_t uptr;
 #define SIZE_T_SIZE         (sizeof(size_t))
@@ -152,13 +155,11 @@ class Constructor
 public:
     Constructor()
     {
-        //resetStdIo();
         HeapInfo::init(64 * (1 << 20));
         overrideMalloc();
+        BrowserShell::registerClient(new HeapSnapshotHandler());
+        BrowserShell::registerClient(new LightSnapshotHandler());
         BrowserShell::startServer();
-        dlmalloc(12);
-        dlmalloc(14);
-        
     }
 private:
 

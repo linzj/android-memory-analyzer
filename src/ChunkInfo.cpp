@@ -1,8 +1,10 @@
 #include <stddef.h>
 #include <string.h>
 #include <unwind.h>
+#include <stdint.h>
 #include "ChunkInfo.h"
 
+#if 1
 typedef struct {
     size_t count;
     size_t ignore;
@@ -42,11 +44,40 @@ int backtrace(const void** addrs, size_t ignore, size_t size)
     _Unwind_Backtrace(trace_function, (void*)&state);
     return size - state.count;
 }
+#else
+static
+int backtrace(const void** addrs, size_t ignore, size_t size)
+{
+    uintptr_t ebp;
+    uintptr_t esp;
+    int oldSize = size;
+    asm("mov %%ebp,%0\n" : "=r"(ebp) : :);
+    asm("mov %%esp,%0\n" : "=r"(esp) : :);
+
+    while(ebp && size && (ebp >= esp) && (ebp <= (esp+ 4096*100)))
+    {
+        do {
+            if(ignore)
+            {
+                ignore--;
+                break;
+            }
+            // next to ebp is the ip
+            uintptr_t ip = reinterpret_cast<uintptr_t*>(ebp)[1];
+            addrs[0] = reinterpret_cast<const void *>(ip);
+            addrs++;
+            size--;
+        }while(0);
+        ebp = *reinterpret_cast<uintptr_t*>(ebp);
+    }
+    return oldSize - size;
+}
+#endif //__i386__
 
 void ChunkInfo::get(ChunkInfo & info,void * )
 {
     memset(&info,0,sizeof(ChunkInfo));
-    int Len = backtrace(info.m_backtraces,1,ChunkInfo::MAX_BACKTRACES);
+    int Len = backtrace(info.m_backtraces,3,ChunkInfo::MAX_BACKTRACES);
     info.m_backtracesLen = Len;
 }
 

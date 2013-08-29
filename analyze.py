@@ -1,4 +1,4 @@
-import struct,sys,math
+import struct,sys,math,operator
 from hash import backtrace_element
 from optparse import OptionParser
 
@@ -48,20 +48,24 @@ def writeHeapElement(e,f):
 class ParseError(Exception):
     pass
 
+DATA_ATTR_USER_CONTENT = 0x1
+
 def parse(g,f):
     s = struct.Struct("<L")
-    st = struct.Struct("<LLL")
+    st = struct.Struct("<LLLL")
     generalList = []
     while True:
-        Buf = f.read(12)
-        if not Buf or len(Buf) != 12:
+        Buf = f.read(16)
+        if not Buf or len(Buf) != 16:
             break
         t = st.unpack(Buf)
         addr = t[0]
         addrLen = t[1]
         backtraceLen = t[2]
+        dataAttrib = t[3]
         backtraces = None
         special = 0
+        #print "{0:08x},{1:08x},{2:08x},{3:08x}".format(addr,addrLen,backtraceLen,dataAttrib)
         if (backtraceLen > 0) and ((backtraceLen & special_magic)  == 0):
             backtraces = []
             for i in range(backtraceLen):
@@ -79,11 +83,12 @@ def parse(g,f):
                 else:
                     print "global:{0:08x}-{1:08x} special = {2}".format(addr,addr+addrLen,special)
 
-            
-        userContent = f.read(addrLen)
-        if not userContent or len(userContent) != addrLen:
-            print "{0:08x},{1},{2}".format(addr,len(userContent),addrLen)
-            raise ParseError()
+        userContent = None
+        if (dataAttrib & DATA_ATTR_USER_CONTENT) != 0 :     
+            userContent = f.read(addrLen)
+            if not userContent or len(userContent) != addrLen:
+                print "{0:08x},{1},{2}".format(addr,len(userContent),addrLen)
+                raise ParseError()
         e = HeapElement(addr,addrLen,backtraces,userContent)
         if special:
             e.special = special
@@ -147,26 +152,26 @@ def searchInListLoose(a, x, lo=0, hi=None):
             hi = mid
     return None
 
-
-def analyzeZeroRef(l):
-    s = struct.Struct("<L")
+def analyzeHeapElementMember(he,l,func):
     lowerBound = l[0].addr
     upperBound = l[-1].addr
-    print "lowerBound {0:08x} ,upperBound {1:08x}".format(lowerBound,upperBound)
-    for he in l:
-        length = len(he.userContent)
-        if length < 4:
+    s = struct.Struct("<L")
+    if not he.userContent:
+        return
+    length = len(he.userContent)
+    if length < 4:
+        return
+    length /= 4
+    for i in range(length):
+        val = s.unpack_from(he.userContent, i * 4)[0]
+
+        if (val < lowerBound) or (val > upperBound) : 
             continue
-        length /= 4
-        for i in range(length):
-            val = s.unpack_from(he.userContent, i * 4)[0]
+        heRef = searchInListLoose(l,val)
+        if heRef:
+            func(heRef)
 
-            if (val < lowerBound) or (val > upperBound) : 
-                continue
-            heRef = searchInListLoose(l,val)
-            if heRef:
-                heRef.refCount += 1
-
+def writeRefZeroAndNotSpecial(l):
     with open("/tmp/analyze_zero","w") as f:
         bset = set()
 
@@ -180,6 +185,35 @@ def analyzeZeroRef(l):
                     bset.add(bt)
                 writeHeapElement(he,f)
 
+
+def analyzeZeroRef(l):
+    def callbackFunc(heRef):
+        heRef.refCount += 1
+    for he in l:
+        analyzeHeapElementMember(he,l,callbackFunc)
+    writeRefZeroAndNotSpecial(l)
+
+
+def analyzeMarkAndSweep(generalList):
+    markStack = []
+# construct the strong roots
+    for e in generalList:
+        if e.special:
+            e.refCount = 1 #actually a mark
+            markStack.append(e)
+
+    def callbackFunc(he):
+        if not he.refCount:
+            he.refCount = 1 #actually a mark
+            markStack.append(he)
+
+    while markStack:
+        he = markStack.pop()
+        analyzeHeapElementMember(he,generalList,callbackFunc)
+# mark complete
+    writeRefZeroAndNotSpecial(generalList)
+    
+
 def printBackTrace(generalList):
     myDict = {}
     for e in generalList:
@@ -191,7 +225,9 @@ def printBackTrace(generalList):
         else:
             myDict[bt] = e.size
 
-    for item in myDict.items():
+    myitem = sorted(myDict.iteritems(), key=operator.itemgetter(1))
+
+    for item in myitem:
         print "Allocation: {0}".format(item[1])
         for b in item[0]._backtraces:
             print  "0x{0:08X}".format(b)
@@ -201,6 +237,7 @@ def printBackTrace(generalList):
 if __name__ == '__main__':
     myoptparser = OptionParser()
     myoptparser.add_option("-b","--backtrace-only",help="only print backtrace to stdout",action="store_true",dest="backtrace_only")
+    myoptparser.add_option("-m","--mark-and-sweep",help="only print backtrace to stdout",action="store_true",dest="mark_and_sweep")
     myargTuple = myoptparser.parse_args() 
     generalList = []
     with open(myargTuple[1][0],"rb") as f:
@@ -210,6 +247,8 @@ if __name__ == '__main__':
     generalList.sort()
     if myargTuple[0].backtrace_only:
         printBackTrace(generalList)
+    elif myargTuple[0].mark_and_sweep:
+        analyzeMarkAndSweep(generalList)
     else:
         analyzeZeroRef(generalList)
 
