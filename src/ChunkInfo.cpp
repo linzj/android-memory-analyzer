@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "ChunkInfo.h"
 
-#ifdef __arm__
+#if 1
 typedef struct {
     size_t count;
     size_t ignore;
@@ -44,8 +44,7 @@ int backtrace(const void** addrs, size_t ignore, size_t size)
     _Unwind_Backtrace(trace_function, (void*)&state);
     return size - state.count;
 }
-#endif //__arm__
-#ifdef __i386__
+#else
 static
 int backtrace(const void** addrs, size_t ignore, size_t size)
 {
@@ -78,7 +77,7 @@ int backtrace(const void** addrs, size_t ignore, size_t size)
 void ChunkInfo::get(ChunkInfo & info,void * )
 {
     memset(&info,0,sizeof(ChunkInfo));
-    int Len = backtrace(info.m_backtraces,1,ChunkInfo::MAX_BACKTRACES);
+    int Len = backtrace(info.m_backtraces,3,ChunkInfo::MAX_BACKTRACES);
     info.m_backtracesLen = Len;
 }
 
