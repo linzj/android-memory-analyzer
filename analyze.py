@@ -1,6 +1,7 @@
 import struct,sys,math,operator
 from hash import backtrace_element
 from optparse import OptionParser
+from Print import printDebug,printError
 
 granularity = 64 * 1024
 special_magic = 0x80000000L
@@ -75,19 +76,19 @@ def parse(g,f):
                 backtraceElement = s.unpack(backtraceElementBuf)
                 backtraces.append(backtraceElement[0])
         else:
-#thread data or global variable
+            #thread data or global variable
             special = backtraceLen
             if special:
                 if special == thread_data:
-                    print "thread:{0:08x}-{1:08x}".format(addr,addr+addrLen)
+                    printDebug("thread:{0:08x}-{1:08x}".format(addr,addr+addrLen))
                 else:
-                    print "global:{0:08x}-{1:08x} special = {2}".format(addr,addr+addrLen,special)
+                    printDebug("global:{0:08x}-{1:08x} special = {2}".format(addr,addr+addrLen,special))
 
         userContent = None
         if (dataAttrib & DATA_ATTR_USER_CONTENT) != 0 :     
             userContent = f.read(addrLen)
             if not userContent or len(userContent) != addrLen:
-                print "{0:08x},{1},{2}".format(addr,len(userContent),addrLen)
+                printError("{0:08x},{1},{2}".format(addr,len(userContent),addrLen))
                 raise ParseError()
         e = HeapElement(addr,addrLen,backtraces,userContent)
         if special:
@@ -214,7 +215,8 @@ def analyzeMarkAndSweep(generalList):
     writeRefZeroAndNotSpecial(generalList)
     
 
-def printBackTrace(generalList):
+# print unique backtrace in generalList
+def printBackTrace(generalList,fileDesc = sys.stdout):
     myDict = {}
     for e in generalList:
         if not e.backtraces:
@@ -225,13 +227,15 @@ def printBackTrace(generalList):
         else:
             myDict[bt] = e.size
 
-    myitem = sorted(myDict.iteritems(), key=operator.itemgetter(1))
+    myitem = sorted(myDict.iteritems(), key=operator.itemgetter(1),reverse=True)
 
     for item in myitem:
-        print "Allocation: {0}".format(item[1])
+        print >>fileDesc,"Allocation: {0}".format(item[1])
         for b in item[0]._backtraces:
-            print  "0x{0:08X}".format(b)
-        print ""
+            print >>fileDesc,"0x{0:08X}".format(b)
+        print >>fileDesc,""
+    fileDesc.flush()
+    return tuple(x[0] for x in myitem)
 
 
 if __name__ == '__main__':

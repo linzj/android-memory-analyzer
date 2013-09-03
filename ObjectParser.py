@@ -132,7 +132,7 @@ class MyCallback(object):
     def __init__(self):
         self.objs_ = {}
         self.currentAllocation_ = 0
-        self.foundObject_ = False
+        self.composedName_ = None
         self.backTraceHit_ = False
         self.typeParser_ = TypeParser()
         self.lines_ = []
@@ -140,6 +140,8 @@ class MyCallback(object):
         self.objectAllocation_ = 0
         self.totalCount_ = 0
         self.objectCount_ = 0
+        # index-object mapping
+        self.IOMapping_ = {}
         with open('semantic.cfg','r') as f:
             self.typeParser_.parseSemanticFile(f)
 
@@ -149,16 +151,16 @@ class MyCallback(object):
         self.totalCount_ += 1
 
     def hitBacktrace(self,addr,soPath,funcName,filePath):
-        self.lines_.append([addr,soPath,funcName,filePath])
-        if self.foundObject_:
+        self.lines_.append((addr,soPath,funcName,filePath))
+        if self.composedName_:
             return
         self.backTraceHit_ = True
         name = self.parseObjectName(filePath)
         if not name:
             name = self.typeParser_.parseObjectName(funcName)
         if name:
-            self.foundObject_ = True
             composedName = soPath + ':' + name 
+            self.composedName_ =composedName
 
             if composedName in self.objs_:
                 self.objs_[composedName] += self.currentAllocation_
@@ -190,11 +192,14 @@ class MyCallback(object):
             return None # eat the exception
 
     def hitEnd(self):
-        if not self.foundObject_ and self.backTraceHit_ and self.lines_ :
+        if not self.composedName_ and self.backTraceHit_ and self.lines_ :
 # no effectic semantic found
             printDebug('no effectic semantic found' + str(self.lines_))
             #raise WrongSemanticError()
-        self.foundObject_ = False
+        if self.composedName_:
+            self.IOMapping_[self.totalCount_ - 1] = (self.composedName_,self.lines_)
+            self.composedName_ = None
+
         self.currentAllocation_ = 0
         self.lines_ = []
 
