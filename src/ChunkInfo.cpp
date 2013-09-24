@@ -3,8 +3,9 @@
 #include <unwind.h>
 #include <stdint.h>
 #include "ChunkInfo.h"
+#define FAST_MODE 1
 
-#if 1
+#if !defined(FAST_MODE) || FAST_MODE == 0
 typedef struct {
     size_t count;
     size_t ignore;
@@ -45,6 +46,7 @@ int backtrace(const void** addrs, size_t ignore, size_t size)
     return size - state.count;
 }
 #else
+#ifdef __i386__
 static
 int backtrace(const void** addrs, size_t ignore, size_t size)
 {
@@ -73,6 +75,40 @@ int backtrace(const void** addrs, size_t ignore, size_t size)
     return oldSize - size;
 }
 #endif //__i386__
+
+#ifdef __arm__
+
+static
+int backtrace(const void** addrs, size_t ignore, size_t size)
+{
+    uintptr_t fp;
+    uintptr_t sp;
+    int oldSize = size;
+    asm("mov %0,%%fp\n" : "=r"(fp) : :);
+    asm("mov %0,%%sp\n" : "=r"(sp) : :);
+
+    while(fp && size && (fp >= sp) && (fp <= (sp+ 4096*100)))
+    {
+        do {
+            if(ignore)
+            {
+                ignore--;
+                break;
+            }
+            // next to fp is the ip
+            uintptr_t ip = reinterpret_cast<uintptr_t*>(fp)[1];
+            addrs[0] = reinterpret_cast<const void *>(ip);
+            addrs++;
+            size--;
+        }while(0);
+        fp = *reinterpret_cast<uintptr_t*>(fp);
+    }
+    return oldSize - size;
+}
+#endif //__arm__
+
+
+#endif //FAST_MODE
 
 void ChunkInfo::get(ChunkInfo & info,void * )
 {
