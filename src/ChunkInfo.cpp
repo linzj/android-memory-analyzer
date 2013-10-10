@@ -3,7 +3,7 @@
 #include <unwind.h>
 #include <stdint.h>
 #include "ChunkInfo.h"
-#define FAST_MODE 1
+#define FAST_MODE 0
 
 #if !defined(FAST_MODE) || FAST_MODE == 0
 typedef struct {

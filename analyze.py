@@ -237,11 +237,74 @@ def printBackTrace(generalList,fileDesc = sys.stdout):
     fileDesc.flush()
     return tuple(x[0] for x in myitem)
 
+#dump the user data to stdout
+
+def dumpUserData(generalList):
+    for e in generalList:
+        if not e.special:
+            sys.stdout.write(e.userContent)
+
+#duplcation analysis
+
+class DuplicationStat(object):
+    def __init__(self):
+        self.array_ = []
+        self.sum_ = 0
+
+    def add(self,e):
+        self.array_.append(e)
+        self.sum_ += len(e.userContent)
+
+    def printStat(self,f):
+        print >>f,'================================================================================'
+        print >>f,'Total duplication:{0}'.format(self.sum_)
+        for e in self.array_:
+            writeHeapElement(e,f)
+
+        print >>f,'================================================================================'
+        print >>f,''
+
+class DuplicationAnalysis(object):
+    def __init__(self):
+        self.map_ = {}
+
+    def duplicationAnalysis(self,generalList):
+        for e in generalList:
+            if not e.special:
+                self.duplicationAnalysisElement(e)
+
+        #now we have got the duplication map
+        values = self.map_.values()
+        self.map_ = None
+
+        outValues = []
+        #ignore those is not duplicated
+        for e in values:
+            if len(e.array_) != 1:
+                outValues.append(e)
+
+        outValues = sorted(outValues,key = lambda(s): s.sum_,reverse=True)
+        return outValues
+
+    def duplicationAnalysisElement(self,e):
+        import hashlib
+        hasher = hashlib.md5()
+        hasher.update(e.userContent)
+        _hash = hasher.digest()
+        if _hash in self.map_:
+            self.map_[_hash].add(e)
+        else:
+            stat = DuplicationStat()
+            self.map_[_hash] = stat
+            stat.add(e)
+
 
 if __name__ == '__main__':
     myoptparser = OptionParser()
     myoptparser.add_option("-b","--backtrace-only",help="only print backtrace to stdout",action="store_true",dest="backtrace_only")
-    myoptparser.add_option("-m","--mark-and-sweep",help="only print backtrace to stdout",action="store_true",dest="mark_and_sweep")
+    myoptparser.add_option("-m","--mark-and-sweep",help="using mark and sweep algorithm to detect more leak",action="store_true",dest="mark_and_sweep")
+    myoptparser.add_option("--dump-user-data",help="dump user data to stdout",action="store_true",dest="dump_user_data")
+    myoptparser.add_option("--duplication",help="dump user data to stdout",action="store_true",dest="duplication_analysis")
     myargTuple = myoptparser.parse_args() 
     generalList = []
     with open(myargTuple[1][0],"rb") as f:
@@ -253,6 +316,13 @@ if __name__ == '__main__':
         printBackTrace(generalList)
     elif myargTuple[0].mark_and_sweep:
         analyzeMarkAndSweep(generalList)
+    elif myargTuple[0].dump_user_data:
+        dumpUserData(generalList)
+    elif myargTuple[0].duplication_analysis:
+        da = DuplicationAnalysis()
+        values = da.duplicationAnalysis(generalList)
+        for v in values:
+            v.printStat(sys.stdout)
     else:
         analyzeZeroRef(generalList)
 
