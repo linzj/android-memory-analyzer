@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
-import sys,HeapDumpParse,heapq
+import sys,analyze
 from Print import printError,printDebug
+from hash import backtrace_element
 
 class OldObjectDesc(object):
     def __init__(self,allocations,backtraces):
@@ -25,17 +26,26 @@ def handleFiles(fileName1,fileName2):
     for item in objDict2.items():
         if item[0] in objDict1:
             objDict3[item[0]] = OldObjectDesc(item[1].allocations - objDict1[item[0]].allocations,item[0])
+        else:
+            objDict3[item[0]] = OldObjectDesc(item[1].allocations,item[0])
+
     return objDict3
 
 def initObjDict(objDict,fileName):
-    parser = HeapDumpParse.Parser()
-    parser.parse(fileName)
-    for outData in parser.outData:
-        if outData.backtraces not in objDict:
-            objDict[outData.backtraces] = OldObjectDesc(outData.allocations * outData.size,outData.backtraces)
+    g = analyze.HeapGraph()
+    generalList = None
+    with open(fileName,'rb') as f:
+        generalList = analyze.parse(g,f)
+
+    for outData in generalList:
+        if not outData.backtraces:
+            continue
+        backtrace = backtrace_element(outData.backtraces)
+        if backtrace not in objDict:
+            objDict[backtrace] = OldObjectDesc(outData.size,outData.backtraces)
         else:
-            oldDesc = objDict[outData.backtraces]
-            oldDesc.allocations += outData.allocations * outData.size
+            oldDesc = objDict[backtrace]
+            oldDesc.allocations +=  outData.size
 
 
 if __name__ == '__main__':
