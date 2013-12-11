@@ -13,6 +13,17 @@
 #include "LightSnapshotHandler.h"
 
 typedef uint32_t uptr;
+#define SIZE_T_SIZE         (sizeof(size_t))
+#define TWO_SIZE_T_SIZES    (SIZE_T_SIZE<<1)
+struct malloc_chunk {
+  size_t               prev_foot;  /* Size of previous chunk (if free).  */
+  size_t               head;       /* Size and inuse bits. */
+  struct malloc_chunk* fd;         /* double links -- used only if free. */
+  struct malloc_chunk* bk;
+};
+typedef struct malloc_chunk* m_chunkptr;
+#define chunksize(p)        ((p)->head & ~(INUSE_BITS))
+#define mem2chunk(mem)      ((m_chunkptr)((char*)(mem) - TWO_SIZE_T_SIZES))
 
 struct MallocDebug {
   void* (*malloc)(uptr bytes);
@@ -64,9 +75,9 @@ static void* _malloc(uptr bytes)
     }
     pthread_mutex_lock(&restoreMutex);
     restoreMalloc();
-    void * chunkaddr= reinterpret_cast<void*>(data);
+    void * chunkaddr= reinterpret_cast<void*>(mem2chunk(data));
     ChunkInfo info;
-    ChunkInfo::get(info,chunkaddr,bytes);
+    ChunkInfo::get(info,chunkaddr);
     HeapInfo::registerChunkInfo((void*)chunkaddr,info);
     overrideMalloc();
     pthread_mutex_unlock(&restoreMutex);
@@ -77,7 +88,7 @@ static void  _free(void* data)
 {
     pthread_mutex_lock(&restoreMutex);
     restoreMalloc();
-    HeapInfo::unregisterChunkInfo((void*)data);
+    HeapInfo::unregisterChunkInfo((void*)mem2chunk(data));
     dlfree(data);
     overrideMalloc();
     pthread_mutex_unlock(&restoreMutex);
@@ -92,9 +103,9 @@ static void* _calloc(uptr n_elements, uptr elem_size)
     }
     pthread_mutex_lock(&restoreMutex);
     restoreMalloc();
-    void * chunkaddr= reinterpret_cast<void*>(data);
+    void * chunkaddr= reinterpret_cast<void*>(mem2chunk(data));
     ChunkInfo info;
-    ChunkInfo::get(info,chunkaddr,n_elements * elem_size);
+    ChunkInfo::get(info,chunkaddr);
     HeapInfo::registerChunkInfo((void*)chunkaddr,info);
     overrideMalloc();
     pthread_mutex_unlock(&restoreMutex);
@@ -108,11 +119,11 @@ static void* _realloc(void* oldMem, uptr bytes)
     {
         pthread_mutex_lock(&restoreMutex);
         restoreMalloc();
-        HeapInfo::unregisterChunkInfo((void*)oldMem);
+        HeapInfo::unregisterChunkInfo((void*)mem2chunk(oldMem));
         void * data = newMem;
-        void * chunkaddr= reinterpret_cast<void*>(data);
+        void * chunkaddr= reinterpret_cast<void*>(mem2chunk(data));
         ChunkInfo info;
-        ChunkInfo::get(info,chunkaddr,bytes);
+        ChunkInfo::get(info,chunkaddr);
         HeapInfo::registerChunkInfo((void*)chunkaddr,info);
         overrideMalloc();
         pthread_mutex_unlock(&restoreMutex);
@@ -129,10 +140,9 @@ static void* _memalign(uptr alignment, uptr bytes)
     }
     pthread_mutex_lock(&restoreMutex);
     restoreMalloc();
-    void * chunkaddr= reinterpret_cast<void*>(data);
+    void * chunkaddr= reinterpret_cast<void*>(mem2chunk(data));
     ChunkInfo info;
-#define ROUND_UP(n, sz) (((n) + ((sz) - 1)) & ~((sz) - 1))
-    ChunkInfo::get(info,chunkaddr,ROUND_UP(bytes,alignment));
+    ChunkInfo::get(info,chunkaddr);
     HeapInfo::registerChunkInfo((void*)chunkaddr,info);
     overrideMalloc();
     pthread_mutex_unlock(&restoreMutex);
@@ -153,6 +163,14 @@ public:
     }
 private:
 
+    // static void resetStdIo(void)
+    // {
+    //     close(1);
+    //     close(2);
+    //     int fd = open("/sdcard/stdio",O_WRONLY | O_CREAT,0666);
+    //     dup2(fd,1);
+    //     dup2(fd,2);
+    // }
 };
 
 

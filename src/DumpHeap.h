@@ -11,8 +11,10 @@ class DumpHeap
 
     private:
         
-        void notifyChunk(const void * userptr,size_t userlen);
-        static void mywalk(const void *userptr, size_t userlen, void *arg);
+        void notifyChunk(const void * chunk,size_t len,const void * userptr,size_t userlen);
+        static void mywalk(const void *chunkptr, size_t chunklen,
+                const void *userptr, size_t userlen,
+                void *arg);
 
     private:
         int fd_;

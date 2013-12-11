@@ -51,9 +51,6 @@ class ParseError(Exception):
 
 DATA_ATTR_USER_CONTENT = 0x1
 
-def ROUND_UP(n,sz):
-    return (((n) + ((sz) - 1)) & ~((sz) - 1))
-
 def parse(g,f):
     s = struct.Struct("<L")
     st = struct.Struct("<LLLL")
@@ -65,23 +62,16 @@ def parse(g,f):
         t = st.unpack(Buf)
         addr = t[0]
         addrLen = t[1]
-        #roundUp addrLen
-        addrLen = ROUND_UP(addrLen,4)
         backtraceLen = t[2]
         dataAttrib = t[3]
         backtraces = None
         special = 0
-        if(f.tell() & 1):
-            raise ParseError()
         #print "{0:08x},{1:08x},{2:08x},{3:08x}".format(addr,addrLen,backtraceLen,dataAttrib)
         if (backtraceLen > 0) and ((backtraceLen & special_magic)  == 0):
             backtraces = []
             for i in range(backtraceLen):
                 backtraceElementBuf = f.read(4)
                 if not backtraceElementBuf or len(backtraceElementBuf) != 4:
-                    print backtraceElementBuf
-                    print "{0:08x} {1}".format(backtraceLen,i)
-                    print "{0:08x} {1:08x},{2:08x}".format(addr,addrLen,dataAttrib)
                     raise ParseError()
                 backtraceElement = s.unpack(backtraceElementBuf)
                 backtraces.append(backtraceElement[0])
@@ -95,12 +85,11 @@ def parse(g,f):
                     printDebug("global:{0:08x}-{1:08x} special = {2}".format(addr,addr+addrLen,special))
 
         userContent = None
-        if (dataAttrib & DATA_ATTR_USER_CONTENT) != 0 and addrLen > 0:     
+        if (dataAttrib & DATA_ATTR_USER_CONTENT) != 0 :     
             userContent = f.read(addrLen)
             if not userContent or len(userContent) != addrLen:
                 printError("{0:08x},{1},{2}".format(addr,len(userContent),addrLen))
                 raise ParseError()
-        #print "{0:08x} {1:08x} {2:08x} {3:08x} {4:08x}    ".format(f.tell(),addr,addrLen,backtraceLen,dataAttrib)
         e = HeapElement(addr,addrLen,backtraces,userContent)
         if special:
             e.special = special

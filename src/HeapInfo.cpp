@@ -72,13 +72,3 @@ ChunkInfo  const * HeapInfo::getChunkInfo(const void *dataPointer)
     return &i->second;
 }
 
-void HeapInfo::walk(void (func)(const void *userptr, size_t userlen, void *arg),void * obj )
-{
-    for(HeapInfoMap::iterator i = m_impl->m_infoMap.begin();
-        i != m_impl->m_infoMap.end();
-        ++i) 
-    {
-        func(i->first,i->second.m_size,obj);
-    }
-}
-

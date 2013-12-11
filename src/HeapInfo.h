@@ -9,8 +9,6 @@ public:
     static void registerChunkInfo(const void * ,ChunkInfo const &);
     static void unregisterChunkInfo(const void *);
     static ChunkInfo  const * getChunkInfo(const void *);
-    static void walk(void (func)(const void *userptr, size_t userlen, void *arg),void * );
-
 private:
     HeapInfo(size_t dataSize);
     ~HeapInfo();

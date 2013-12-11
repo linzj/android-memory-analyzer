@@ -110,11 +110,10 @@ int backtrace(const void** addrs, size_t ignore, size_t size)
 
 #endif //FAST_MODE
 
-void ChunkInfo::get(ChunkInfo & info,void * data,size_t size)
+void ChunkInfo::get(ChunkInfo & info,void * )
 {
     memset(&info,0,sizeof(ChunkInfo));
     int Len = backtrace(info.m_backtraces,3,ChunkInfo::MAX_BACKTRACES);
     info.m_backtracesLen = Len;
-    info.m_size = size;
 }
 

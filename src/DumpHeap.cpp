@@ -30,57 +30,52 @@ struct SendOnce
     const void * m_backtraces[ChunkInfo::MAX_BACKTRACES];
 };
 
-void DumpHeap::notifyChunk(const void * userptr ,size_t userlen)
+void DumpHeap::notifyChunk( const void * chunk,size_t len,const void * userptr ,size_t userlen)
 {
-    SendOnce once = {userptr,userlen};
-    const ChunkInfo * info = HeapInfo::getChunkInfo(userptr);
-    size_t sendSize = offsetof(SendOnce,m_backtraces);
-    if(info && info->m_backtracesLen)
+    if(userptr)
     {
-        once.m_backtracesLen = info->m_backtracesLen;
-        sendSize += once.m_backtracesLen * sizeof(void*);
-        for(int i = 0 ; i < once.m_backtracesLen; ++i)
+        SendOnce once = { userptr,userlen};
+        const ChunkInfo * info = HeapInfo::getChunkInfo(chunk);
+        size_t sendSize = offsetof(SendOnce,m_backtraces);
+        if(info && info->m_backtracesLen)
         {
-            once.m_backtraces[i] = info->m_backtraces[i];
+            once.m_backtracesLen = info->m_backtracesLen;
+            sendSize += once.m_backtracesLen * sizeof(void*);
+            for(int i = 0 ; i < once.m_backtracesLen; ++i)
+            {
+                once.m_backtraces[i] = info->m_backtraces[i];
+            }
+        }
+        else
+        {
+           once.m_backtracesLen = 0;
+        }
+
+        if(sendUserData_)
+        {
+            once.m_dataAttrib |= DATA_ATTR_USER_CONTENT;
+        }
+
+        sendTillEnd(fd_,reinterpret_cast<const char *>(&once),sendSize);
+
+        if(sendUserData_)
+        {
+            sendTillEnd(fd_,static_cast<const char *>(userptr),userlen);
         }
     }
-    else
-    {
-        once.m_backtracesLen = 0;
-    }
-
-    if(sendUserData_)
-    {
-        once.m_dataAttrib |= DATA_ATTR_USER_CONTENT;
-    }
-
-    sendTillEnd(fd_,reinterpret_cast<const char *>(&once),sendSize);
-
-    if(sendUserData_)
-    {
-        sendTillEnd(fd_,static_cast<const char *>(userptr),userlen);
-        // fill to 4 bytes align
-        static const size_t mask = 4 - 1;
-        if(userlen & mask)
-        {
-            // need to send till 4 bytes
-            static char fill[3] = {0};
-            size_t bytes_to_send = 4 - (userlen & mask);
-            sendTillEnd(fd_,fill,bytes_to_send);
-        }
-    }
-
 }
 
 void DumpHeap::callWalk(void)
 {
-    HeapInfo::walk(mywalk,this);
+    dlmalloc_walk_heap(mywalk,this);
 }
 
 
-void DumpHeap::mywalk(const void *userptr, size_t userlen, void *arg)
+void DumpHeap::mywalk(const void *chunkptr, size_t chunklen,
+        const void *userptr, size_t userlen,
+        void *arg)
 {
     DumpHeap * This = reinterpret_cast<DumpHeap*>(arg);
-    This->notifyChunk(userptr ,userlen);
+    This->notifyChunk(chunkptr,chunklen,userptr ,userlen);
 }
 
