@@ -173,18 +173,29 @@ def analyzeHeapElementMember(he,l,func):
             func(heRef)
 
 def writeRefZeroAndNotSpecial(l):
-    with open("/tmp/analyze_zero","w") as f:
-        bset = set()
+    myDict = {}
 
-        for he in l:
+    for he in l:
 # find all refCount = 0
-            if he.refCount == 0 and he.special == 0:
-                if he.backtraces:
-                    bt = backtrace_element(he.backtraces)
-                    if bt in bset:
-                        continue
-                    bset.add(bt)
-                writeHeapElement(he,f)
+        if he.refCount == 0 and he.special == 0:
+            if he.backtraces:
+                bt = backtrace_element(he.backtraces)
+                if bt in myDict:
+                    myDict[bt] += he.size
+                else:
+                    myDict[bt] = he.size
+    sortedItemList = sorted(myDict.iteritems(), key=operator.itemgetter(1),reverse=True)
+    
+    with open("/tmp/analyze_zero","w") as f:
+        for item in sortedItemList:
+# for backward compatibility
+            print >>f,"Address: {0:08x}".format(0)
+            print >>f,"Size: {0}".format(item[1])
+            print >>f,"Backtraces:"
+            if item[0]._backtraces:
+                for b in item[0]._backtraces:
+                    print >>f , "0x{0:08X}".format(b)
+            print >>f,""
 
 
 def analyzeZeroRef(l):
