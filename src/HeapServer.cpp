@@ -158,7 +158,7 @@ static void * serverFunc(void *)
         memset(&ev,0,sizeof(ev));
         int nfds = epoll_wait(epollfd.get(), &ev, 1, -1);
         
-        if (nfds == -1) {
+        if (nfds == -1 && errno != EINTR) {
             LINLOG("epoll_wait failed:%d",errno);
             return NULL;
         }
