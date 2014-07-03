@@ -82,10 +82,10 @@ def parse(g, f):
                 if special == thread_data:
                     printDebug("thread:{0:08x}-{1:08x}".format(addr, addr+addrLen))
                 else:
-                    printDebug("global:{0:08x}-{1:08x} special = {2}".format(addr, addr+addrLen, special))
+                    printDebug("global:{0:08x}-{1:08x} special = {2:08x}".format(addr, addr+addrLen, special))
 
         userContent = None
-        if (dataAttrib & DATA_ATTR_USER_CONTENT) != 0 :     
+        if (dataAttrib & DATA_ATTR_USER_CONTENT) != 0 and addrLen > 0:
             userContent = f.read(addrLen)
             if not userContent or len(userContent) != addrLen:
                 printError("{0:08x}, {1}, {2}".format(addr, len(userContent), addrLen))
@@ -312,15 +312,13 @@ class DuplicationAnalysis(object):
 def solve_reference(l, address):
     s = struct.Struct("<L")
     for e in l:
-        if e.userContent and len(e.userContent) >=4 and e.addr != address:
-            length = len(e.userContent)/4
+        if e.userContent and len(e.userContent) >= 4:
+            length = len(e.userContent) / 4
             for i in range(length):
                 val = s.unpack_from(e.userContent, i * 4)[0]
                 if val == address:
                     writeHeapElement(e, sys.stdout)
                     break
-            if i != length - 1:
-                continue # goto next element
 
 
 

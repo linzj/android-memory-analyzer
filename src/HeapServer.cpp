@@ -32,7 +32,7 @@ int sendTillEnd(int fd,const char * buffer,size_t s)
         int byteSend = send(fd,buffer,s,0);
         if(byteSend == -1)
         {
-            LINLOG("send Till End failed!errno = %d,sent %d bytes \n",errno,static_cast<int>(bufferEnd - buffer));
+            LINLOG("send Till End failed!errno = %d, buffer = %p, sent %d bytes.\n",errno, buffer, static_cast<int>(bufferEnd - buffer));
             return byteSend;
         }
         s -= byteSend;
