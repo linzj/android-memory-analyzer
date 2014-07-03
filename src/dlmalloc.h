@@ -29,41 +29,40 @@
 extern "C" {
 #endif
 
-#include <stddef.h>   /* for size_t */
+#include <stddef.h> /* for size_t */
 
 #if !ONLY_MSPACES
 
 /* Check an additional macro for the five primary functions */
 #if !defined(USE_DL_PREFIX)
-#define dlcalloc               calloc
-#define dlfree                 free
-#define dlmalloc               malloc
-#define dlmemalign             memalign
-#define dlrealloc              realloc
+#define dlcalloc calloc
+#define dlfree free
+#define dlmalloc malloc
+#define dlmemalign memalign
+#define dlrealloc realloc
 #endif
 
 #ifndef USE_DL_PREFIX
-#define dlvalloc               valloc
-#define dlpvalloc              pvalloc
-#define dlmallinfo             mallinfo
-#define dlmallopt              mallopt
-#define dlmalloc_trim          malloc_trim
+#define dlvalloc valloc
+#define dlpvalloc pvalloc
+#define dlmallinfo mallinfo
+#define dlmallopt mallopt
+#define dlmalloc_trim malloc_trim
 #define dlmalloc_walk_free_pages \
-                               malloc_walk_free_pages
+    malloc_walk_free_pages
 #define dlmalloc_walk_heap \
-                               malloc_walk_heap
-#define dlmalloc_stats         malloc_stats
-#define dlmalloc_usable_size   malloc_usable_size
-#define dlmalloc_footprint     malloc_footprint
+    malloc_walk_heap
+#define dlmalloc_stats malloc_stats
+#define dlmalloc_usable_size malloc_usable_size
+#define dlmalloc_footprint malloc_footprint
 #define dlmalloc_max_allowed_footprint \
-                               malloc_max_allowed_footprint
+    malloc_max_allowed_footprint
 #define dlmalloc_set_max_allowed_footprint \
-                               malloc_set_max_allowed_footprint
+    malloc_set_max_allowed_footprint
 #define dlmalloc_max_footprint malloc_max_footprint
-#define dlindependent_calloc   independent_calloc
+#define dlindependent_calloc independent_calloc
 #define dlindependent_comalloc independent_comalloc
 #endif /* USE_DL_PREFIX */
-
 
 /*
   malloc(size_t n)
@@ -88,7 +87,7 @@ void* dlmalloc(size_t);
   It has no effect if p is null. If p was not malloced or already
   freed, free(p) will by default cuase the current program to abort.
 */
-void  dlfree(void*);
+void dlfree(void*);
 
 /*
   calloc(size_t n_elements, size_t element_size);
@@ -161,10 +160,9 @@ void* dlvalloc(size_t);
 */
 int dlmallopt(int, int);
 
-#define M_TRIM_THRESHOLD     (-1)
-#define M_GRANULARITY        (-2)
-#define M_MMAP_THRESHOLD     (-3)
-
+#define M_TRIM_THRESHOLD (-1)
+#define M_GRANULARITY (-2)
+#define M_MMAP_THRESHOLD (-3)
 
 /*
   malloc_footprint();
@@ -262,11 +260,11 @@ size_t dlmalloc_max_footprint(void);
 //   MALLINFO_FIELD_TYPE fordblks; /* total free space */
 //   MALLINFO_FIELD_TYPE keepcost; /* releasable (via malloc_trim) space */
 // };
-#endif  /* _MALLOC_H_ */
-#endif  /* HAVE_USR_INCLUDE_MALLOC_H */
+#endif /* _MALLOC_H_ */
+#endif /* HAVE_USR_INCLUDE_MALLOC_H */
 
 //struct mallinfo dlmallinfo(void);
-#endif  /* NO_MALLINFO */
+#endif /* NO_MALLINFO */
 
 /*
   independent_calloc(size_t n_elements, size_t element_size, void* chunks[]);
@@ -383,13 +381,12 @@ void** dlindependent_calloc(size_t, size_t, void**);
 */
 void** dlindependent_comalloc(size_t, size_t*, void**);
 
-
 /*
   pvalloc(size_t n);
   Equivalent to valloc(minimum-page-that-holds(n)), that is,
   round up n to nearest pagesize.
  */
-void*  dlpvalloc(size_t);
+void* dlpvalloc(size_t);
 
 /*
   malloc_trim(size_t pad);
@@ -412,7 +409,7 @@ void*  dlpvalloc(size_t);
 
   Malloc_trim returns 1 if it actually released any memory, else 0.
 */
-int  dlmalloc_trim(size_t);
+int dlmalloc_trim(size_t);
 
 /*
   malloc_walk_free_pages(handler, harg)
@@ -425,8 +422,8 @@ int  dlmalloc_trim(size_t);
 
   The value in harg will be passed to each call of the handler.
  */
-void dlmalloc_walk_free_pages(void(*handler)(void *start, void *end, void *arg),
-    void *harg);
+void dlmalloc_walk_free_pages(void (*handler)(void* start, void* end, void* arg),
+                              void* harg);
 
 /*
   malloc_walk_heap(handler, harg)
@@ -435,10 +432,10 @@ void dlmalloc_walk_free_pages(void(*handler)(void *start, void *end, void *arg),
   heap.  The handler will receive the chunk pointer and length, the
   object pointer and length, and the value in harg on each call.
  */
-void dlmalloc_walk_heap(void(*handler)(const void *chunkptr, size_t chunklen,
-                                       const void *userptr, size_t userlen,
-                                       void *arg),
-                        void *harg);
+void dlmalloc_walk_heap(void (*handler)(const void* chunkptr, size_t chunklen,
+                                        const void* userptr, size_t userlen,
+                                        void* arg),
+                        void* harg);
 
 /*
   malloc_usable_size(void* p);
@@ -475,7 +472,7 @@ size_t dlmalloc_usable_size(void*);
   malloc_stats prints only the most commonly interesting statistics.
   More information can be obtained by calling mallinfo.
 */
-void  dlmalloc_stats();
+void dlmalloc_stats();
 
 #endif /* !ONLY_MSPACES */
 
@@ -620,7 +617,6 @@ void mspace_set_max_allowed_footprint(mspace msp, size_t bytes);
 */
 size_t mspace_max_footprint(mspace msp);
 
-
 #if !NO_MALLINFO
 /*
   mspace_mallinfo behaves as mallinfo, but reports properties of
@@ -646,10 +642,10 @@ int mspace_trim(mspace msp, size_t pad);
 */
 int mspace_mallopt(int, int);
 
-#endif  /* MSPACES */
+#endif /* MSPACES */
 
 #ifdef __cplusplus
-};  /* end of extern "C" */
+}; /* end of extern "C" */
 #endif
 
 #endif /* MALLOC_280_H */

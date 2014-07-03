@@ -1,24 +1,22 @@
 #ifndef DUMPHEAP_H
-#define DUMPHEAP_H 
+#define DUMPHEAP_H
 #pragma once
 
-class DumpHeap
-{
-    public:
-        explicit DumpHeap(int fd,bool sendUserData = true);
+class DumpHeap {
+public:
+    explicit DumpHeap(int fd, bool sendUserData = true);
 
-        void callWalk(void);
+    void callWalk(void);
 
-    private:
-        
-        void notifyChunk(const void * chunk,size_t len,const void * userptr,size_t userlen);
-        static void mywalk(const void *chunkptr, size_t chunklen,
-                const void *userptr, size_t userlen,
-                void *arg);
+private:
+    void notifyChunk(const void* chunk, size_t len, const void* userptr, size_t userlen);
+    static void mywalk(const void* chunkptr, size_t chunklen,
+                       const void* userptr, size_t userlen,
+                       void* arg);
 
-    private:
-        int fd_;
-        bool sendUserData_;
+private:
+    int fd_;
+    bool sendUserData_;
 };
 
 #endif /* DUMPHEAP_H */

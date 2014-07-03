@@ -3,13 +3,12 @@
 
 #include "DumpHeap.h"
 
-void LightSnapshotHandler::handleClient(int fd,struct sockaddr *)
+void LightSnapshotHandler::handleClient(int fd, struct sockaddr*)
 {
-    DumpHeap dh(fd,false);
+    DumpHeap dh(fd, false);
     dh.callWalk();
 }
 
 LightSnapshotHandler::LightSnapshotHandler()
 {
 }
-
