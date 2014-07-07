@@ -181,16 +181,23 @@ def writeRefZeroAndNotSpecial(l):
             if he.backtraces:
                 bt = backtrace_element(he.backtraces)
                 if bt in myDict:
-                    myDict[bt] += he.size
+                    l = myDict[bt]
+                    l[0] += he.size
+                    l.append(he.addr)
                 else:
-                    myDict[bt] = he.size
-    sortedItemList = sorted(myDict.iteritems(), key=operator.itemgetter(1), reverse=True)
+                    myDict[bt] = [he.size, he.addr]
+    def getSortKey(item):
+        return item[1][0]
+
+    sortedItemList = sorted(myDict.iteritems(), key=getSortKey, reverse=True)
     
     with open("/tmp/analyze_zero", "w") as f:
         for item in sortedItemList:
 # for backward compatibility
-            print >>f, "Address: {0:08x}".format(0)
-            print >>f, "Size: {0}".format(item[1])
+            l = item[1]
+
+            print >>f, "Address: " + " ".join(["{0:08x}".format(num) for num in l[1:] ])
+            print >>f, "Size: {0}".format(l[0])
             print >>f, "Backtraces:"
             if item[0]._backtraces:
                 for b in item[0]._backtraces:
