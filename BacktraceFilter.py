@@ -17,7 +17,7 @@ if __name__ == '__main__':
         if HitAddressStatus == 0:
             if line.startswith('Address:'):
                 HitAddressStatus = 1
-                buf.append(line)
+            buf.append(line)
         elif HitAddressStatus == 1:
             if line.startswith('Size:'):
                 HitAddressStatus = 2
@@ -26,7 +26,7 @@ if __name__ == '__main__':
             if line.startswith('Backtraces:'):
                 HitAddressStatus = 3
                 buf.append(line)
-        if HitAddressStatus == 3:
+        elif HitAddressStatus == 3:
             buf.append(line)
 #do the filtering
             for myfilter in filterList:

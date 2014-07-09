@@ -241,6 +241,8 @@ def handleJob(job,full_path):
         try:
             parser.parse(line)
         except Exception as e:
+            print "{0:08x}".format(jobNumberIter.next())
+            print line
             traceback.print_exc(file=sys.stderr)
             raise e
 

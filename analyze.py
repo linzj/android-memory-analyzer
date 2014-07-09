@@ -153,10 +153,12 @@ def searchInListLoose(a, x, lo=0, hi=None):
             hi = mid
     return None
 
+__s = struct.Struct("<L")
+
 def analyzeHeapElementMember(he, l, func):
     lowerBound = l[0].addr
     upperBound = l[-1].addr
-    s = struct.Struct("<L")
+    global __s
     if not he.userContent:
         return
     length = len(he.userContent)
@@ -164,7 +166,7 @@ def analyzeHeapElementMember(he, l, func):
         return
     length /= 4
     for i in range(length):
-        val = s.unpack_from(he.userContent, i * 4)[0]
+        val = __s.unpack_from(he.userContent, i * 4)[0]
 
         if (val < lowerBound) or (val > upperBound) : 
             continue
@@ -172,37 +174,46 @@ def analyzeHeapElementMember(he, l, func):
         if heRef:
             func(heRef)
 
-def writeRefZeroAndNotSpecial(l):
+def extractNotRefElement(l):
+    result = []
+    for he in l:
+# find all refCount = 0 which is not special
+        if he.refCount == 0 and he.special == 0:
+            result.append(he)
+    return result
+
+
+def writeElementSet(l, f):
     myDict = {}
 
     for he in l:
-# find all refCount = 0
-        if he.refCount == 0 and he.special == 0:
-            if he.backtraces:
-                bt = backtrace_element(he.backtraces)
-                if bt in myDict:
-                    l = myDict[bt]
-                    l[0] += he.size
-                    l.append(he.addr)
-                else:
-                    myDict[bt] = [he.size, he.addr]
+        if he.backtraces:
+            bt = backtrace_element(he.backtraces)
+            if bt in myDict:
+                l = myDict[bt]
+                l[0] += he.size
+                l.append(he.addr)
+            else:
+                myDict[bt] = [he.size, he.addr]
     def getSortKey(item):
         return item[1][0]
 
     sortedItemList = sorted(myDict.iteritems(), key=getSortKey, reverse=True)
+    if not sortedItemList:
+        return False
     
-    with open("/tmp/analyze_zero", "w") as f:
-        for item in sortedItemList:
+    for item in sortedItemList:
 # for backward compatibility
-            l = item[1]
+        l = item[1]
 
-            print >>f, "Address: " + " ".join(["{0:08x}".format(num) for num in l[1:] ])
-            print >>f, "Size: {0}".format(l[0])
-            print >>f, "Backtraces:"
-            if item[0]._backtraces:
-                for b in item[0]._backtraces:
-                    print >>f , "0x{0:08X}".format(b)
-            print >>f, ""
+        print >>f, "Address: " + " ".join(["{0:08x}".format(num) for num in l[1:] ])
+        print >>f, "Size: {0}".format(l[0])
+        print >>f, "Backtraces:"
+        if item[0]._backtraces:
+            for b in item[0]._backtraces:
+                print >>f , "0x{0:08X}".format(b)
+        print >>f, ""
+    return True
 
 
 def analyzeZeroRef(l):
@@ -210,8 +221,121 @@ def analyzeZeroRef(l):
         heRef.refCount += 1
     for he in l:
         analyzeHeapElementMember(he, l, callbackFunc)
-    writeRefZeroAndNotSpecial(l)
 
+    with open("/tmp/analyze_zero", "w") as f:
+        writeElementSet(extractNotRefElement(l), f)
+
+
+def splitNotMarked(l):
+    # 2 passes algorithm
+    # pass 1: we find all the splitted group from each elements, if we find an element from B actually referencing an element from A, we mark B aliasing A, and share the same aliasing group as A
+    # pass 2: we merge the aliased group, list [A, B, ...]  will tell us will merge all the groups in this list into one list
+    # the alias set of a heap element is a unordered set of group index.
+
+    class Group(object):
+        def __init__(self):
+            self.list_ = []
+        def append(self, o):
+            self.list_.append(o)
+        def pop(self):
+            return self.list_.pop()
+
+    groups_1 = []
+    groups_index = 0
+    
+    #pass 1 begins
+    for e in l:
+        if not hasattr(e, 'group_index_'):
+            current_grp_index = groups_index
+            groups_index += 1
+            current_grp = Group()
+            groups_1.append(current_grp)
+            process_stack = []
+            process_stack.append(e)
+
+            while process_stack:
+                e = process_stack.pop()
+                if not hasattr(e, 'group_index_'):
+                    setattr(e, 'group_index_', current_grp_index)
+                    current_grp.append(e)
+
+                    def my_callback(he):
+                        if not hasattr(he, 'group_index_') or he.group_index_ != current_grp_index:
+                            process_stack.append(he)
+
+                    analyzeHeapElementMember(e, l, my_callback)
+                elif e.group_index_ != current_grp_index:
+                    other_grp = groups_1[e.group_index_]
+                    alias_set = None
+                    if hasattr(other_grp, 'alias_set_'):
+                        if not hasattr(current_grp, 'alias_set_'):
+                            other_grp.alias_set_.add(current_grp_index)
+                            alias_set = other_grp.alias_set_
+                            setattr(current_grp, 'alias_set_', alias_set)
+                        elif other_grp.alias_set_ != current_grp.alias_set_:
+                            if len(current_grp.alias_set_) > len(other_grp.alias_set_):
+                                alias_set_to_update = other_grp.alias_set_
+                                new_alias_set = current_grp.alias_set_
+                                current_grp.alias_set_ |= alias_set_to_update
+                            else:
+                                alias_set_to_update = current_grp.alias_set_
+                                new_alias_set = other_grp.alias_set_
+                                other_grp.alias_set_ |= alias_set_to_update
+                            for a in alias_set_to_update:
+                                if a >= len(groups_1):
+                                    print a
+                                    print new_alias_set
+                                    print alias_set_to_update
+                                groups_1[a].alias_set_ =  new_alias_set
+
+                    elif hasattr(current_grp, 'alias_set_'):
+                        current_grp.alias_set_.add(e.group_index_)
+                        setattr(other_grp, 'alias_set_', current_grp.alias_set_)
+                    else:
+                        alias_set = set((e.group_index_, current_grp_index))
+                        setattr(other_grp, 'alias_set_', alias_set)
+                        setattr(current_grp, 'alias_set_', alias_set)
+
+    # pass 1 ends and verify groups_1
+    if len(groups_1) != groups_index:
+        print len(groups_1)
+        print groups_index
+        raise Exception()
+
+    #pass 2 begins
+    groups_2 = []
+    for i in range(len(groups_1)):
+        g = groups_1[i]
+        if not g:
+            continue
+        if not hasattr(g, 'alias_set_'):
+            groups_2.append(g.list_)
+            groups_1[i] = None
+            if not g.list_:
+                raise Exception()
+        else:
+            new_l = []
+            for a in g.alias_set_:
+                g_ = groups_1[a]
+                if g_:
+                    new_l += g_.list_
+                    groups_1[a] = None
+                else:
+                    print g_
+                    print g.alias_set_
+                    print i
+                    print a
+                    raise Exception()
+            if not new_l:
+                raise Exception()
+            groups_2.append(new_l)
+    # verifying groups_2
+    for i in range(len(groups_2)):
+        g = groups_2[i]
+        if not g:
+            print i
+            raise Exception()
+    return groups_2
 
 def analyzeMarkAndSweep(generalList):
     markStack = []
@@ -229,8 +353,14 @@ def analyzeMarkAndSweep(generalList):
     while markStack:
         he = markStack.pop()
         analyzeHeapElementMember(he, generalList, callbackFunc)
+    not_marked_list = extractNotRefElement(generalList)
+# split the not marked set into groups, which has ref path to each other
+    groups = splitNotMarked(not_marked_list)
 # mark complete
-    writeRefZeroAndNotSpecial(generalList)
+    with open("/tmp/analyze_zero", "w") as f:
+        for g in groups:
+            if writeElementSet(g, f):
+                print >>f, '--------------------------------------------------------------------------------'
     
 
 # print unique backtrace in generalList
