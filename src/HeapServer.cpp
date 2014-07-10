@@ -215,5 +215,17 @@ void registerClient(ClientHandler* handler)
     s_handlers[index].clientPort_ = s_current_port;
     s_current_port++;
 }
+
+static pthread_mutex_t restoreMutex = PTHREAD_MUTEX_INITIALIZER;
+
+void lockHeapServer()
+{
+    pthread_mutex_lock(&restoreMutex);
+}
+
+void unlockHeapServer()
+{
+    pthread_mutex_unlock(&restoreMutex);
+}
 }
 #endif // ENABLE_HEAP_SEVER

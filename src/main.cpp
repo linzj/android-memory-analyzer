@@ -24,6 +24,8 @@ struct malloc_chunk {
 typedef struct malloc_chunk* m_chunkptr;
 #define chunksize(p) ((p)->head & ~(INUSE_BITS))
 #define mem2chunk(mem) ((m_chunkptr)((char*)(mem)-TWO_SIZE_T_SIZES))
+using BrowserShell::lockHeapServer;
+using BrowserShell::unlockHeapServer;
 
 struct MallocDebug {
     void* (*malloc)(uptr bytes);
@@ -57,8 +59,6 @@ static void overrideMalloc()
     __libc_malloc_dispatch = &_malloc_dispatch;
 }
 
-static pthread_mutex_t restoreMutex = PTHREAD_MUTEX_INITIALIZER;
-
 static void restoreMalloc()
 {
     extern const MallocDebug* __libc_malloc_dispatch;
@@ -72,25 +72,25 @@ static void* _malloc(uptr bytes)
     if (!data) {
         return data;
     }
-    pthread_mutex_lock(&restoreMutex);
+    lockHeapServer();
     restoreMalloc();
     void* chunkaddr = reinterpret_cast<void*>(mem2chunk(data));
     ChunkInfo info;
     ChunkInfo::get(info, chunkaddr);
     HeapInfo::registerChunkInfo((void*)chunkaddr, info);
     overrideMalloc();
-    pthread_mutex_unlock(&restoreMutex);
+    unlockHeapServer();
     return data;
 }
 
 static void _free(void* data)
 {
-    pthread_mutex_lock(&restoreMutex);
+    lockHeapServer();
     restoreMalloc();
     HeapInfo::unregisterChunkInfo((void*)mem2chunk(data));
     dlfree(data);
     overrideMalloc();
-    pthread_mutex_unlock(&restoreMutex);
+    unlockHeapServer();
 }
 
 static void* _calloc(uptr n_elements, uptr elem_size)
@@ -99,14 +99,14 @@ static void* _calloc(uptr n_elements, uptr elem_size)
     if (!data) {
         return data;
     }
-    pthread_mutex_lock(&restoreMutex);
+    lockHeapServer();
     restoreMalloc();
     void* chunkaddr = reinterpret_cast<void*>(mem2chunk(data));
     ChunkInfo info;
     ChunkInfo::get(info, chunkaddr);
     HeapInfo::registerChunkInfo((void*)chunkaddr, info);
     overrideMalloc();
-    pthread_mutex_unlock(&restoreMutex);
+    unlockHeapServer();
     return data;
 }
 
@@ -114,7 +114,7 @@ static void* _realloc(void* oldMem, uptr bytes)
 {
     void* newMem = dlrealloc(oldMem, bytes);
     if (newMem) {
-        pthread_mutex_lock(&restoreMutex);
+        lockHeapServer();
         restoreMalloc();
         HeapInfo::unregisterChunkInfo((void*)mem2chunk(oldMem));
         void* data = newMem;
@@ -123,7 +123,7 @@ static void* _realloc(void* oldMem, uptr bytes)
         ChunkInfo::get(info, chunkaddr);
         HeapInfo::registerChunkInfo((void*)chunkaddr, info);
         overrideMalloc();
-        pthread_mutex_unlock(&restoreMutex);
+        unlockHeapServer();
     }
     return newMem;
 }
@@ -134,14 +134,14 @@ static void* _memalign(uptr alignment, uptr bytes)
     if (!data) {
         return data;
     }
-    pthread_mutex_lock(&restoreMutex);
+    lockHeapServer();
     restoreMalloc();
     void* chunkaddr = reinterpret_cast<void*>(mem2chunk(data));
     ChunkInfo info;
     ChunkInfo::get(info, chunkaddr);
     HeapInfo::registerChunkInfo((void*)chunkaddr, info);
     overrideMalloc();
-    pthread_mutex_unlock(&restoreMutex);
+    unlockHeapServer();
     return data;
 }
 
