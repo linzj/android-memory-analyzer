@@ -80,7 +80,7 @@ def parse(g, f):
             special = backtraceLen
             if special:
                 if special == thread_data:
-                    printDebug("thread:{0:08x}-{1:08x}".format(addr, addr+addrLen))
+                    printDebug("thread:{0:08x}-{1:08x} special = {2:08x}".format(addr, addr+addrLen, special))
                 else:
                     printDebug("global:{0:08x}-{1:08x} special = {2:08x}".format(addr, addr+addrLen, special))
 
@@ -141,17 +141,21 @@ def searchInListStrict(a, x, lo=0, hi=None):
 def searchInListLoose(a, x, lo=0, hi=None):
     if hi is None:
         hi = len(a)
+    candidate = None
     while lo < hi:
-        mid = (lo+hi)//2
+        mid = (lo+hi) // 2
         e = a[mid]
         midval = e.addr
-        if (midval <= x) and ((midval + e.size) >= x):
+        if midval == x:
             return e;
-        if midval < x:
-            lo = mid+1
+        elif (midval <= x) and ((midval + e.size) >= x):
+            candidate = e
+            lo = mid + 1
+        elif midval < x:
+            lo = mid + 1
         elif midval > x: 
             hi = mid
-    return None
+    return candidate
 
 __s = struct.Struct("<L")
 
@@ -447,13 +451,19 @@ class DuplicationAnalysis(object):
             stat.add(e)
 
 def solve_reference(l, address):
-    s = struct.Struct("<L")
+    global __s
+    s = __s
+    e_target = searchInListStrict(l, address)
+    if not e_target:
+        printError('fails to find address')
+    start = e_target.addr
+    end = start + e_target.size
     for e in l:
         if e.userContent and len(e.userContent) >= 4:
             length = len(e.userContent) / 4
             for i in range(length):
                 val = s.unpack_from(e.userContent, i * 4)[0]
-                if val == address:
+                if val >= address and val <= end:
                     writeHeapElement(e, sys.stdout)
                     break
 
