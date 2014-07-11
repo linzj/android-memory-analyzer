@@ -23,8 +23,6 @@ namespace BrowserShell {
 #if defined(ENABLE_HEAP_SEVER) && ENABLE_HEAP_SEVER == 1
 void startServer(void);
 void registerClient(ClientHandler*);
-void lockHeapServer();
-void unlockHeapServer();
 #else
 inline void startServer(void)
 {

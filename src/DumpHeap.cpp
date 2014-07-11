@@ -58,7 +58,8 @@ void DumpHeap::notifyChunk(const void* chunk, size_t len, const void* userptr, s
 
 void DumpHeap::callWalk(void)
 {
-    dlmalloc_walk_heap(mywalk, this);
+    // dlmalloc_walk_heap(mywalk, this);
+    HeapInfo::walk(mywalk, this);
 }
 
 void DumpHeap::mywalk(const void* chunkptr, size_t chunklen,

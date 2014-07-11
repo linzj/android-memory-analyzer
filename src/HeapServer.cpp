@@ -11,6 +11,7 @@
 #include <vector>
 #include "LinLog.h"
 #include "HeapServer.h"
+#include "HeapInfo.h"
 
 static const uint16_t s_port = 3244;
 static uint16_t s_current_port = s_port;
@@ -21,6 +22,15 @@ struct ClientDesc {
     ClientHandler* handler_;
 };
 static ClientDesc s_handlers[MAX_HANDLER_COUNT];
+static void lockHeapServer()
+{
+    HeapInfo::lockHeapInfo();
+}
+
+static void unlockHeapServer()
+{
+    HeapInfo::unlockHeapInfo();
+}
 
 int sendTillEnd(int fd, const char* buffer, size_t s)
 {
@@ -179,7 +189,9 @@ static void* serverFunc(void*)
             return NULL;
         }
 
+        lockHeapServer();
         s_handlers[i].handler_->handleClient(clientSockFd.get(), reinterpret_cast<struct sockaddr*>(&clientAddr));
+        unlockHeapServer();
         shutdown(clientSockFd.get(), SHUT_RDWR);
     }
     return NULL;
@@ -214,18 +226,6 @@ void registerClient(ClientHandler* handler)
     s_handlers[index].handler_ = handler;
     s_handlers[index].clientPort_ = s_current_port;
     s_current_port++;
-}
-
-static pthread_mutex_t restoreMutex = PTHREAD_MUTEX_INITIALIZER;
-
-void lockHeapServer()
-{
-    pthread_mutex_lock(&restoreMutex);
-}
-
-void unlockHeapServer()
-{
-    pthread_mutex_unlock(&restoreMutex);
 }
 }
 #endif // ENABLE_HEAP_SEVER

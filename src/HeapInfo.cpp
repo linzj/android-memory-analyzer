@@ -3,6 +3,7 @@
 #include "HeapInfo.h"
 #include "ChunkInfo.h"
 #include "SpecialAllocator.h"
+#include <pthread.h>
 
 typedef std::tr1::unordered_map<void* /*the chunk pointer*/
                                 ,
@@ -74,4 +75,40 @@ ChunkInfo const* HeapInfo::getChunkInfo(const void* dataPointer)
         return NULL;
     }
     return &i->second;
+}
+
+void HeapInfo::walk(pfn_walk walk, void* data)
+{
+    HeapInfoMap& map = m_impl->m_infoMap;
+    for (HeapInfoMap::iterator i = map.begin();
+         i != map.end();
+         ++i) {
+        void* addr = i->first;
+        size_t len = i->second.m_chunkSize;
+
+        len = (len + 3) & ~3;
+
+        walk(addr, len, addr, len, data);
+    }
+}
+
+static pthread_mutex_t s_restoreMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
+
+static int s_lockCount = 0;
+
+void HeapInfo::lockHeapInfo()
+{
+    pthread_mutex_lock(&s_restoreMutex);
+    s_lockCount++;
+}
+
+void HeapInfo::unlockHeapInfo()
+{
+    s_lockCount--;
+    pthread_mutex_unlock(&s_restoreMutex);
+}
+
+bool HeapInfo::isCurrentThreadLockedRecursive()
+{
+    return s_lockCount > 1;
 }

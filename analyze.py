@@ -453,9 +453,10 @@ class DuplicationAnalysis(object):
 def solve_reference(l, address):
     global __s
     s = __s
-    e_target = searchInListStrict(l, address)
+    e_target = searchInListLoose(l, address)
     if not e_target:
         printError('fails to find address')
+        return
     start = e_target.addr
     end = start + e_target.size
     for e in l:

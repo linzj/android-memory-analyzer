@@ -13,19 +13,6 @@
 #include "LightSnapshotHandler.h"
 
 typedef uint32_t uptr;
-#define SIZE_T_SIZE (sizeof(size_t))
-#define TWO_SIZE_T_SIZES (SIZE_T_SIZE << 1)
-struct malloc_chunk {
-    size_t prev_foot; /* Size of previous chunk (if free).  */
-    size_t head; /* Size and inuse bits. */
-    struct malloc_chunk* fd; /* double links -- used only if free. */
-    struct malloc_chunk* bk;
-};
-typedef struct malloc_chunk* m_chunkptr;
-#define chunksize(p) ((p)->head & ~(INUSE_BITS))
-#define mem2chunk(mem) ((m_chunkptr)((char*)(mem)-TWO_SIZE_T_SIZES))
-using BrowserShell::lockHeapServer;
-using BrowserShell::unlockHeapServer;
 
 struct MallocDebug {
     void* (*malloc)(uptr bytes);
@@ -59,38 +46,31 @@ static void overrideMalloc()
     __libc_malloc_dispatch = &_malloc_dispatch;
 }
 
-static void restoreMalloc()
-{
-    extern const MallocDebug* __libc_malloc_dispatch;
-
-    __libc_malloc_dispatch = &_dlmalloc_dispatch;
-}
-
 static void* _malloc(uptr bytes)
 {
     void* data = dlmalloc(bytes);
     if (!data) {
         return data;
     }
-    lockHeapServer();
-    restoreMalloc();
-    void* chunkaddr = reinterpret_cast<void*>(mem2chunk(data));
-    ChunkInfo info;
-    ChunkInfo::get(info, chunkaddr);
-    HeapInfo::registerChunkInfo((void*)chunkaddr, info);
-    overrideMalloc();
-    unlockHeapServer();
+    HeapInfo::lockHeapInfo();
+    if (!HeapInfo::isCurrentThreadLockedRecursive()) {
+        ChunkInfo info;
+        ChunkInfo::get(info, data);
+        info.m_chunkSize = bytes;
+        HeapInfo::registerChunkInfo((void*)data, info);
+    }
+    HeapInfo::unlockHeapInfo();
     return data;
 }
 
 static void _free(void* data)
 {
-    lockHeapServer();
-    restoreMalloc();
-    HeapInfo::unregisterChunkInfo((void*)mem2chunk(data));
+    HeapInfo::lockHeapInfo();
+    if (!HeapInfo::isCurrentThreadLockedRecursive()) {
+        HeapInfo::unregisterChunkInfo(data);
+    }
+    HeapInfo::unlockHeapInfo();
     dlfree(data);
-    overrideMalloc();
-    unlockHeapServer();
 }
 
 static void* _calloc(uptr n_elements, uptr elem_size)
@@ -99,14 +79,15 @@ static void* _calloc(uptr n_elements, uptr elem_size)
     if (!data) {
         return data;
     }
-    lockHeapServer();
-    restoreMalloc();
-    void* chunkaddr = reinterpret_cast<void*>(mem2chunk(data));
-    ChunkInfo info;
-    ChunkInfo::get(info, chunkaddr);
-    HeapInfo::registerChunkInfo((void*)chunkaddr, info);
-    overrideMalloc();
-    unlockHeapServer();
+    HeapInfo::lockHeapInfo();
+    if (!HeapInfo::isCurrentThreadLockedRecursive()) {
+        ChunkInfo info;
+        ChunkInfo::get(info, data);
+        info.m_chunkSize = n_elements * elem_size;
+
+        HeapInfo::registerChunkInfo((void*)data, info);
+    }
+    HeapInfo::unlockHeapInfo();
     return data;
 }
 
@@ -114,16 +95,16 @@ static void* _realloc(void* oldMem, uptr bytes)
 {
     void* newMem = dlrealloc(oldMem, bytes);
     if (newMem) {
-        lockHeapServer();
-        restoreMalloc();
-        HeapInfo::unregisterChunkInfo((void*)mem2chunk(oldMem));
-        void* data = newMem;
-        void* chunkaddr = reinterpret_cast<void*>(mem2chunk(data));
-        ChunkInfo info;
-        ChunkInfo::get(info, chunkaddr);
-        HeapInfo::registerChunkInfo((void*)chunkaddr, info);
-        overrideMalloc();
-        unlockHeapServer();
+        HeapInfo::lockHeapInfo();
+        if (!HeapInfo::isCurrentThreadLockedRecursive()) {
+            HeapInfo::unregisterChunkInfo(oldMem);
+            void* data = newMem;
+            ChunkInfo info;
+            ChunkInfo::get(info, data);
+            info.m_chunkSize = bytes;
+            HeapInfo::registerChunkInfo(data, info);
+        }
+        HeapInfo::unlockHeapInfo();
     }
     return newMem;
 }
@@ -134,14 +115,14 @@ static void* _memalign(uptr alignment, uptr bytes)
     if (!data) {
         return data;
     }
-    lockHeapServer();
-    restoreMalloc();
-    void* chunkaddr = reinterpret_cast<void*>(mem2chunk(data));
-    ChunkInfo info;
-    ChunkInfo::get(info, chunkaddr);
-    HeapInfo::registerChunkInfo((void*)chunkaddr, info);
-    overrideMalloc();
-    unlockHeapServer();
+    HeapInfo::lockHeapInfo();
+    if (!HeapInfo::isCurrentThreadLockedRecursive()) {
+        ChunkInfo info;
+        ChunkInfo::get(info, data);
+        info.m_chunkSize = bytes;
+        HeapInfo::registerChunkInfo((void*)data, info);
+    }
+    HeapInfo::unlockHeapInfo();
     return data;
 }
 
