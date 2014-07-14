@@ -468,7 +468,37 @@ def solve_reference(l, address):
                     writeHeapElement(e, sys.stdout)
                     break
 
+def remove_collision(l):
+    remove_list = []
+    for e in l:
+        if e.special:
+            lo = 0
+            hi = len(l)
+            x = e.addr
 
+            while lo < hi:
+                mid = (lo+hi)//2
+                heap_element = l[mid]
+                midval = heap_element.addr
+
+                if midval < x:
+                    if midval + heap_element.size > x and heap_element.special == 0:
+                        remove_list.append(e)
+                        break
+                    lo = mid+1
+                elif midval > x:
+                    if x + e.size > midval and heap_element.special == 0:
+                        remove_list.append(e)
+                        break
+                    hi = mid
+                else:
+                    if heap_element.special == 0:
+                        remove_list.append(e)
+                    break
+
+    for removing_elment in remove_list:
+        # printDebug("removing_elment.addr: %08x, .size = %d, .special = %u" %(removing_elment.addr, removing_elment.size, removing_elment.special))
+        l.remove(removing_elment)
 
 if __name__ == '__main__':
     myoptparser = OptionParser()
@@ -484,6 +514,8 @@ if __name__ == '__main__':
         generalList = parse(g, f)
         #t = analyzeSegment(g)
     generalList.sort()
+    remove_collision(generalList)
+
     if myargTuple[0].backtrace_only:
         printBackTrace(generalList)
     elif myargTuple[0].mark_and_sweep:
