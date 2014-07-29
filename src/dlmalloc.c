@@ -1389,7 +1389,7 @@ extern size_t getpagesize();
 
 /* the number of bytes to offset an address to align it */
 #define align_offset(A) \
-    ((((size_t)(A)&CHUNK_ALIGN_MASK) == 0) ? 0 : ((MALLOC_ALIGNMENT - ((size_t)(A)&CHUNK_ALIGN_MASK)) & CHUNK_ALIGN_MASK))
+    ((((size_t)(A) & CHUNK_ALIGN_MASK) == 0) ? 0 : ((MALLOC_ALIGNMENT - ((size_t)(A) & CHUNK_ALIGN_MASK)) & CHUNK_ALIGN_MASK))
 
 /* -------------------------- MMAP preliminaries ------------------------- */
 
@@ -1756,8 +1756,8 @@ typedef unsigned int flag_t; /* The type of various bit flag sets */
     ((MCHUNK_SIZE + CHUNK_ALIGN_MASK) & ~CHUNK_ALIGN_MASK)
 
 /* conversion from malloc headers to user pointers, and back */
-#define chunk2mem(p) ((void*)((char*)(p)+TWO_SIZE_T_SIZES))
-#define mem2chunk(mem) ((mchunkptr)((char*)(mem)-TWO_SIZE_T_SIZES))
+#define chunk2mem(p) ((void*)((char*)(p) + TWO_SIZE_T_SIZES))
+#define mem2chunk(mem) ((mchunkptr)((char*)(mem) - TWO_SIZE_T_SIZES))
 /* chunk associated with aligned address A */
 #define align_as_chunk(A) (mchunkptr)((A)+align_offset(chunk2mem(A)))
 

@@ -7,6 +7,7 @@
 
 struct MapElement {
     enum PROTECT {
+        SHARED = 1 << 3,
         READ = 1 << 2,
         WRITE = 1 << 1,
         EXECUTE = 1

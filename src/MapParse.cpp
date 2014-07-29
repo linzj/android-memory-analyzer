@@ -44,6 +44,9 @@ void MapParse::parseLine(const char* line)
     if (protectStart[2] == 'x') {
         protect |= MapElement::EXECUTE;
     }
+    if (protectStart[3] == 's') {
+        protect |= MapElement::SHARED;
+    }
     MapElement e;
     e.m_start = start;
     e.m_end = end;

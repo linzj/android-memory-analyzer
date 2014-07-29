@@ -7,6 +7,7 @@ granularity = 64 * 1024
 special_magic = 0x80000000L
 thread_data = special_magic
 global_variable = 0x81000000L
+PAGE_SIZE = 4096
 
 class HeapElement(object):
     def __hash__(self):
@@ -475,7 +476,6 @@ def remove_collision(l):
             lo = 0
             hi = len(l)
             x = e.addr
-
             while lo < hi:
                 mid = (lo+hi)//2
                 heap_element = l[mid]
@@ -488,7 +488,17 @@ def remove_collision(l):
                     lo = mid+1
                 elif midval > x:
                     if x + e.size > midval and heap_element.special == 0:
-                        remove_list.append(e)
+                        # special case : we need to try shrink it first then consider to remove it
+                        # round down and test it :
+                        round_down_midval = midval & ~(PAGE_SIZE - 1)
+                        if round_down_midval == x:
+                            remove_list.append(e)
+                        else:
+                            # else we need to shrink it. Shrinking an element does not change its order in list.
+                            new_size = round_down_midval - x
+                            assert new_size > 0 and new_size < e.size
+                            e.size = new_size
+                            e.userContent = e.userContent[ : e.size]
                         break
                     hi = mid
                 else:

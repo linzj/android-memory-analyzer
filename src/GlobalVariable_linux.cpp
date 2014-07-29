@@ -15,7 +15,8 @@ static void sendElement(int fd, MapParse::MapList::const_iterator const& i)
 void HeapSnapshotHandler::sendGlobalVariable(int fd, MapParse::MapList const& list)
 {
     for (MapParse::MapList::const_iterator i = list.begin(); i != list.end(); ++i) {
-        if (((i->m_protect & 7) == (MapElement::READ | MapElement::WRITE))
+        // intentionally skip the shared mappings
+        if (((i->m_protect & 15) == (MapElement::READ | MapElement::WRITE))
             && i->m_path.size()) {
             sendElement(fd, i);
             // currently only show interest in none initialize global
