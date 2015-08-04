@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <new>
 
 #include "ChunkInfo.h"
 #include "dlmalloc.h"
@@ -156,3 +157,23 @@ private:
 };
 
 static Constructor g_con;
+
+void* operator new (std::size_t s)
+{
+    return malloc(s);
+}
+
+void operator delete (void* p)
+{
+    return free(p);
+}
+
+void* operator new [](std::size_t s)
+{
+    return malloc(s);
+}
+
+void operator delete [](void* p)
+{
+    return free(p);
+}
