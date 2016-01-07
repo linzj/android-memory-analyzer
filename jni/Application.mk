@@ -1,2 +1,2 @@
-APP_STL = gnustl_static
+APP_STL = system
 #APP_OPTIM = debug

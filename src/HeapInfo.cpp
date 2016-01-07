@@ -1,95 +1,89 @@
-#include <tr1/unordered_map>
 #include "dlmalloc.h"
+#include "ghash.h"
 #include "HeapInfo.h"
 #include "ChunkInfo.h"
 #include "SpecialAllocator.h"
 #include <pthread.h>
+#include <android/log.h>
 
-typedef std::tr1::unordered_map<void* /*the chunk pointer*/
-                                ,
-                                ChunkInfo /* the meaningful value */
-                                ,
-                                std::tr1::hash<void*>, std::equal_to<void*>, SpecialAllocator<std::pair<const void*, ChunkInfo> > > HeapInfoMap;
 
-struct HeapInfo::HeapInfoImpl {
+struct HeapInfoImpl {
     mspace m_data;
-    HeapInfoMap m_infoMap;
+    GHashTable* m_infoMap;
 };
-template <class _Tp>
-typename SpecialAllocator<_Tp>::pointer
-SpecialAllocator<_Tp>::allocate(size_type __n, const void*)
-{
-    if (__builtin_expect(__n > this->max_size(), false))
-        std::__throw_bad_alloc();
 
-    return static_cast<_Tp*>(mspace_malloc(HeapInfo::m_impl->m_data, __n * sizeof(_Tp)));
+static HeapInfoImpl* g_impl = NULL;
+
+static guint keyHash(gconstpointer key)
+{
+    return (guint)key;
 }
 
-template <class _Tp>
-void
-SpecialAllocator<_Tp>::deallocate(typename SpecialAllocator<_Tp>::pointer __p, size_type)
+static gboolean keyEqual(gconstpointer a,
+    gconstpointer b)
 {
-    mspace_free(HeapInfo::m_impl->m_data, __p);
+    return a == b;
 }
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-template <class _Tp>
-template <typename... _Args>
-void
-SpecialAllocator<_Tp>::construct(SpecialAllocator<_Tp>::pointer __p, _Args&&... __args)
-{
-    ::new ((void*)__p) _Tp(std::forward<_Args>(__args)...);
-}
-#endif
 
-HeapInfo::HeapInfoImpl* HeapInfo::m_impl = NULL;
+static void valueRelease(gpointer data)
+{
+    mspace_free(g_impl->m_data, data);
+}
+
+struct HashWalkCB
+{
+    HeapInfo::pfn_walk walk;
+    void* data;
+};
+
+static void hashWalk(gpointer key,
+    gpointer value,
+    gpointer user_data)
+{
+    HashWalkCB* hwcb = static_cast<HashWalkCB*>(user_data);
+    void* addr = key;
+    size_t len = static_cast<ChunkInfo*>(value)->m_chunkSize;
+
+    len = (len + 3) & ~3;
+
+    hwcb->walk(addr, len, addr, len, hwcb->data);
+}
 
 void HeapInfo::init(int dataSize)
 {
     mspace space = create_mspace(dataSize, 1);
     void* storage = mspace_malloc(space, sizeof(HeapInfoImpl));
-    m_impl = reinterpret_cast<HeapInfoImpl*>(storage);
-    m_impl->m_data = space;
-    m_impl = new (storage) HeapInfoImpl;
+    g_impl = reinterpret_cast<HeapInfoImpl*>(storage);
+    g_impl->m_data = space;
+    g_impl->m_infoMap = g_hash_table_new_full(keyHash, keyEqual, NULL, valueRelease);
 }
 
 void HeapInfo::registerChunkInfo(const void* dataPointer, ChunkInfo const& info)
 {
-    if (dataPointer == NULL) {
+    if (dataPointer == NULL || g_impl == NULL) {
         return;
     }
-    m_impl->m_infoMap.insert(std::pair<void*, ChunkInfo>((void*)dataPointer, info));
+    ChunkInfo* value = static_cast<ChunkInfo*>(g_memdup(&info, sizeof(info)));
+    g_hash_table_insert(g_impl->m_infoMap, const_cast<gpointer>(dataPointer), value);
 }
 
 void HeapInfo::unregisterChunkInfo(const void* dataPointer)
 {
-    if (dataPointer == NULL) {
+    if (dataPointer == NULL || g_impl == NULL) {
         return;
     }
-    m_impl->m_infoMap.erase((void*)dataPointer);
+    g_hash_table_remove(g_impl->m_infoMap, dataPointer);
 }
 
 ChunkInfo const* HeapInfo::getChunkInfo(const void* dataPointer)
 {
-    HeapInfoMap::iterator i = m_impl->m_infoMap.find((void*)dataPointer);
-    if (i == m_impl->m_infoMap.end()) {
-        return NULL;
-    }
-    return &i->second;
+    return static_cast<ChunkInfo*>(g_hash_table_lookup(g_impl->m_infoMap, dataPointer));
 }
 
-void HeapInfo::walk(pfn_walk walk, void* data)
+void HeapInfo::walk(HeapInfo::pfn_walk walk, void* data)
 {
-    HeapInfoMap& map = m_impl->m_infoMap;
-    for (HeapInfoMap::iterator i = map.begin();
-         i != map.end();
-         ++i) {
-        void* addr = i->first;
-        size_t len = i->second.m_chunkSize;
-
-        len = (len + 3) & ~3;
-
-        walk(addr, len, addr, len, data);
-    }
+    struct HashWalkCB hwcb = { walk, data };
+    g_hash_table_foreach(g_impl->m_infoMap, hashWalk, &hwcb);
 }
 
 static pthread_mutex_t s_restoreMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
@@ -111,4 +105,37 @@ void HeapInfo::unlockHeapInfo()
 bool HeapInfo::isCurrentThreadLockedRecursive()
 {
     return s_lockCount > 1;
+}
+
+void* g_memdup(const void* src, size_t s)
+{
+    void* dst = mspace_malloc(g_impl->m_data, s);
+    memcpy(dst, src, s);
+    return dst;
+}
+
+void
+g_free (gpointer mem)
+{
+    mspace_free(g_impl->m_data, mem);
+}
+
+#define SIZE_OVERFLOWS(a,b) (G_UNLIKELY ((b) > 0 && (a) > G_MAXSIZE / (b)))
+#define G_MAXSIZE G_MAXULONG
+#define G_MAXULONG ULONG_MAX
+#define G_GSIZE_FORMAT "u"
+#define G_STRLOC __FILE__ ":" G_STRINGIFY (__LINE__)
+
+gpointer
+g_malloc_n (gsize n_blocks,
+	    gsize n_block_bytes)
+{
+  if (SIZE_OVERFLOWS (n_blocks, n_block_bytes))
+    {
+      __android_log_print(ANDROID_LOG_ERROR, "memanalyze", "%s: overflow allocating %"G_GSIZE_FORMAT"*%"G_GSIZE_FORMAT" bytes",
+               G_STRLOC, n_blocks, n_block_bytes);
+      __builtin_unreachable();
+    }
+
+  return mspace_calloc (g_impl->m_data, n_blocks, n_block_bytes);
 }

@@ -48,6 +48,7 @@ MY_SRC := \
 ../src/StopWorld_linux.cpp \
 ../src/ThreadData_linux.cpp \
 ../src/HeapSnapshotHandler.cpp \
+../src/ghash.c \
 ../src/LightSnapshotHandler.cpp
 
 ifeq ($(TARGET_ARCH_ABI), armeabi)
