@@ -54,7 +54,7 @@ void HeapInfo::init(int dataSize)
 
 void HeapInfo::registerChunkInfo(const void* dataPointer, ChunkInfo const& info)
 {
-    if (dataPointer == NULL) {
+    if (dataPointer == NULL || m_impl == NULL) {
         return;
     }
     m_impl->m_infoMap.insert(std::pair<void*, ChunkInfo>((void*)dataPointer, info));
@@ -62,7 +62,7 @@ void HeapInfo::registerChunkInfo(const void* dataPointer, ChunkInfo const& info)
 
 void HeapInfo::unregisterChunkInfo(const void* dataPointer)
 {
-    if (dataPointer == NULL) {
+    if (dataPointer == NULL || m_impl == NULL) {
         return;
     }
     m_impl->m_infoMap.erase((void*)dataPointer);

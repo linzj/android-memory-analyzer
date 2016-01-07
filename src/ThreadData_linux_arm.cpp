@@ -30,13 +30,6 @@ struct sigcontext_arm {
     unsigned long fault_address;
 };
 
-struct ucontext {
-    unsigned long uc_flags;
-    struct ucontext* uc_link;
-    stack_t uc_stack;
-    struct sigcontext_arm uc_mcontext;
-};
-
 static int mycompare(MapElement const& e, unsigned start)
 {
     if (e.m_start < start) {
