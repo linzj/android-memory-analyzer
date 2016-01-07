@@ -1076,7 +1076,7 @@ void dlmalloc_walk_heap(void (*)(const void*, size_t,
   p = malloc(n);
   assert(malloc_usable_size(p) >= 256);
 */
-size_t dlmalloc_usable_size(void*);
+size_t dlmalloc_usable_size(const void*);
 
 /*
   malloc_stats();
@@ -4613,7 +4613,7 @@ void dlmalloc_stats()
     internal_malloc_stats(gm);
 }
 
-size_t dlmalloc_usable_size(void* mem)
+size_t dlmalloc_usable_size(const void* mem)
 {
     if (mem != 0) {
         mchunkptr p = mem2chunk(mem);

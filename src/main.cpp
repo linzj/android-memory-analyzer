@@ -17,11 +17,17 @@
 typedef uint32_t uptr;
 
 #define WRAP(x) _##x
+static int g_count = 0;
+static const int collect_count = 1000;
 
 void* malloc(uptr bytes)
 {
     void* data = dlmalloc(bytes);
     if (!data) {
+        return data;
+    }
+    if (g_count < collect_count) {
+        g_count++;
         return data;
     }
     HeapInfo::lockHeapInfo();
@@ -51,6 +57,10 @@ void* calloc(uptr n_elements, uptr elem_size)
     if (!data) {
         return data;
     }
+    if (g_count < collect_count) {
+        g_count++;
+        return data;
+    }
     HeapInfo::lockHeapInfo();
     if (!HeapInfo::isCurrentThreadLockedRecursive()) {
         ChunkInfo info;
@@ -66,6 +76,10 @@ void* calloc(uptr n_elements, uptr elem_size)
 void* realloc(void* oldMem, uptr bytes)
 {
     void* newMem = dlrealloc(oldMem, bytes);
+    if (g_count < collect_count) {
+        g_count++;
+        return newMem;
+    }
     if (newMem) {
         HeapInfo::lockHeapInfo();
         if (!HeapInfo::isCurrentThreadLockedRecursive()) {
@@ -87,6 +101,10 @@ void* memalign(uptr alignment, uptr bytes)
     if (!data) {
         return data;
     }
+    if (g_count < collect_count) {
+        g_count++;
+        return data;
+    }
     HeapInfo::lockHeapInfo();
     if (!HeapInfo::isCurrentThreadLockedRecursive()) {
         ChunkInfo info;
@@ -98,7 +116,7 @@ void* memalign(uptr alignment, uptr bytes)
     return data;
 }
 
-size_t malloc_usable_size(void* ptr)
+extern "C" size_t malloc_usable_size(const void* ptr)
 {
     return dlmalloc_usable_size(ptr);
 }
