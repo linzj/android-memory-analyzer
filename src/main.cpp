@@ -94,6 +94,10 @@ void* realloc(void* oldMem, uptr bytes)
     }
     return newMem;
 }
+extern "C" {
+    __attribute__((visibility("default"))) void* memalign(uptr alignment, uptr bytes);
+    __attribute__((visibility("default"))) size_t malloc_usable_size(const void* ptr);
+}
 
 void* memalign(uptr alignment, uptr bytes)
 {
@@ -116,7 +120,7 @@ void* memalign(uptr alignment, uptr bytes)
     return data;
 }
 
-extern "C" size_t malloc_usable_size(const void* ptr)
+size_t malloc_usable_size(const void* ptr)
 {
     return dlmalloc_usable_size(ptr);
 }
