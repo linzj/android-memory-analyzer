@@ -1,5 +1,4 @@
-#echo $@ >/sdcard/shit
-LD_LIBRARY_PATH=/data/local/tmp:$LD_LIBRARY_PATH \
-LD_PRELOAD=libmemanaly.so \
+#echo $$ > /pipe
+LD_PRELOAD=/data/local/tmp/libmemanaly.so \
 exec $@
 
