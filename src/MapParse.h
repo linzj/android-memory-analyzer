@@ -1,8 +1,6 @@
 #ifndef MAPPARSE_H
 #define MAPPARSE_H
 #pragma once
-#include <vector>
-#include <string>
 #include <stdint.h>
 
 struct MapElement {
@@ -15,22 +13,27 @@ struct MapElement {
     unsigned long m_start;
     unsigned long m_end;
     unsigned m_protect;
-    std::string m_path;
+    const char* m_path;
+    struct MapElement* m_next;
+    struct MapElement* m_prev;
 };
+
+const MapElement* lowerBound(const MapElement* list, unsigned long start, int (*compare)(const MapElement*, unsigned long));
 
 class MapParse {
 public:
-    typedef std::vector<MapElement> MapList;
     MapParse();
     void parseLine(const char* line);
-    inline MapList& getMapList()
+    inline MapElement* getMapList()
     {
         return m_mapList;
     }
-    static MapList parseFile(const char*);
+    static MapElement* parseFile(const char*);
+    static void freeMapList(MapElement* list);
 
 private:
-    MapList m_mapList;
+    void insertElement(MapElement* e);
+    MapElement* m_mapList;
 };
 
 #endif /* MAPPARSE_H */

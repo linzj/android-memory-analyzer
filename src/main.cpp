@@ -17,17 +17,11 @@
 typedef uint32_t uptr;
 
 #define WRAP(x) _##x
-static int g_count = 0;
-static const int collect_count = 1000;
 
 void* malloc(uptr bytes)
 {
     void* data = dlmalloc(bytes);
     if (!data) {
-        return data;
-    }
-    if (g_count < collect_count) {
-        g_count++;
         return data;
     }
     HeapInfo::lockHeapInfo();
@@ -57,10 +51,6 @@ void* calloc(uptr n_elements, uptr elem_size)
     if (!data) {
         return data;
     }
-    if (g_count < collect_count) {
-        g_count++;
-        return data;
-    }
     HeapInfo::lockHeapInfo();
     if (!HeapInfo::isCurrentThreadLockedRecursive()) {
         ChunkInfo info;
@@ -76,10 +66,6 @@ void* calloc(uptr n_elements, uptr elem_size)
 void* realloc(void* oldMem, uptr bytes)
 {
     void* newMem = dlrealloc(oldMem, bytes);
-    if (g_count < collect_count) {
-        g_count++;
-        return newMem;
-    }
     if (newMem) {
         HeapInfo::lockHeapInfo();
         if (!HeapInfo::isCurrentThreadLockedRecursive()) {
@@ -103,10 +89,6 @@ void* memalign(uptr alignment, uptr bytes)
 {
     void* data = dlmemalign(alignment, bytes);
     if (!data) {
-        return data;
-    }
-    if (g_count < collect_count) {
-        g_count++;
         return data;
     }
     HeapInfo::lockHeapInfo();
@@ -153,7 +135,7 @@ void* operator new (std::size_t s)
     return malloc(s);
 }
 
-void operator delete (void* p)
+void operator delete (void* p) throw()
 {
     return free(p);
 }
@@ -163,7 +145,7 @@ void* operator new [](std::size_t s)
     return malloc(s);
 }
 
-void operator delete [](void* p)
+void operator delete [](void* p) throw()
 {
     return free(p);
 }

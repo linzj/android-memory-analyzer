@@ -3,12 +3,12 @@
 #include <sys/syscall.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <algorithm>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <stdlib.h>
 
 void sendUcontext(int fd, void* ucontext);
 void storeOthersContext(int fd);
@@ -102,7 +102,7 @@ void restartTheWorld(void)
 
 int getUserContext(void** buf, int len)
 {
-    int storeLen = std::min(len, g_contextLen);
+    int storeLen = len < g_contextLen ? len : g_contextLen;
     for (int i = 0; i < storeLen; ++i) {
         buf[i] = g_context[i];
     }

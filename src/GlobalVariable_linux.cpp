@@ -2,7 +2,7 @@
 #include "HeapServer.h"
 #include "HeapSnapshotHandler.h"
 
-static void sendElement(int fd, MapParse::MapList::const_iterator const& i)
+static void sendElement(int fd, const MapElement* i)
 {
     unsigned long start, end;
     start = i->m_start;
@@ -12,18 +12,22 @@ static void sendElement(int fd, MapParse::MapList::const_iterator const& i)
     sendTillEnd(fd, reinterpret_cast<const char*>(start), end - start);
 }
 
-void HeapSnapshotHandler::sendGlobalVariable(int fd, MapParse::MapList const& list)
+void HeapSnapshotHandler::sendGlobalVariable(int fd, const MapElement* list)
 {
-    for (MapParse::MapList::const_iterator i = list.begin(); i != list.end(); ++i) {
+    bool start = true;
+    for (const MapElement* i = list; (i != list || start) ; i = i->m_next) {
+        start = false;
         // intentionally skip the shared mappings
         if (((i->m_protect & 15) == (MapElement::READ | MapElement::WRITE))
-            && i->m_path.size()) {
+            && i->m_path) {
             sendElement(fd, i);
             // currently only show interest in none initialize global
-            MapParse::MapList::const_iterator old = i++;
+            const MapElement* old = i;
+            i = i->m_next;
             if ((old->m_end != i->m_start)
                 || ((i->m_protect & 7) != (MapElement::READ | MapElement::WRITE))
-                || (i->m_path.size())) {
+                || (i->m_path)
+                || (i == list)) {
                 continue;
             }
             sendElement(fd, i);

@@ -12,8 +12,8 @@ public:
     virtual void handleClient(int fd, struct sockaddr*);
 
 private:
-    void sendThreadData(int fd, void** buf, int count, MapParse::MapList const&);
-    void sendGlobalVariable(int fd, MapParse::MapList const& list);
+    void sendThreadData(int fd, void** buf, int count, const MapElement*);
+    void sendGlobalVariable(int fd, const MapElement* list);
 };
 
 #endif /* HEAPSNAPSHOTHANDLER_H */

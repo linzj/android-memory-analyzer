@@ -8,7 +8,6 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <vector>
 #include "LinLog.h"
 #include "HeapServer.h"
 #include "HeapInfo.h"
@@ -92,6 +91,24 @@ public:
     }
 };
 
+class FileOwnerVector
+{
+public:
+    FileOwnerVector() : m_ownerCount(0) {}
+    void push_back(FileOwner& fown)
+    {
+        if (m_ownerCount >= max_owners) {
+            LINLOG("error: m_ownerCount >= max_owners.\n");
+        }
+        FileOwner& location = m_owners[m_ownerCount++];
+        location.swap(fown);
+    }
+private:
+    static const int max_owners = 10;
+    FileOwner m_owners[max_owners];
+    int m_ownerCount;
+};
+
 namespace BrowserShell {
 
 static int createServerSocket(int port)
@@ -117,7 +134,6 @@ static int createServerSocket(int port)
 
 static void* serverFunc(void*)
 {
-    typedef std::vector<FileOwner> FileOwnerVector;
     FileOwnerVector fv;
     FileOwner epollfd(epoll_create(1));
     if (epollfd.get() == -1) {

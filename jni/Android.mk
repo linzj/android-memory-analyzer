@@ -48,6 +48,7 @@ MY_SRC := \
 ../src/StopWorld_linux.cpp \
 ../src/ThreadData_linux.cpp \
 ../src/HeapSnapshotHandler.cpp \
+../src/ghash.c \
 ../src/LightSnapshotHandler.cpp
 
 ifeq ($(TARGET_ARCH_ABI), armeabi)
@@ -62,7 +63,7 @@ endif
  
 
 LOCAL_MODULE    := memanaly
-LOCAL_CFLAGS    :=  -Werror  -fno-omit-frame-pointer -ffunction-sections -fno-rtti -fvisibility=hidden -funwind-tables -DUSE_DL_PREFIX=1 -DMSPACES=1 -DENABLE_HEAP_SEVER=1 -g 
+LOCAL_CFLAGS    :=  -Werror  -fno-omit-frame-pointer -ffunction-sections -fno-rtti -funwind-tables -DUSE_DL_PREFIX=1 -DMSPACES=1 -DENABLE_HEAP_SEVER=1 -g 
 LOCAL_LDLIBS    :=  -lc  -llog
 LOCAL_STATIC_LIBRARIES := dlmalloc
 LOCAL_SRC_FILES :=  $(MY_SRC)
@@ -80,7 +81,7 @@ MY_SRC := \
 ../test/test-unwind-free.cpp \
 
 
-LOCAL_CFLAGS    :=  -Werror -fno-omit-frame-pointer -ffunction-sections -fno-rtti -fvisibility=hidden -funwind-tables -DUSE_DL_PREFIX=1 -DMSPACES=1 -DENABLE_HEAP_SEVER=1 -g 
+LOCAL_CFLAGS    :=  -Werror -fno-omit-frame-pointer -ffunction-sections -fno-rtti -funwind-tables -DUSE_DL_PREFIX=1 -DMSPACES=1 -DENABLE_HEAP_SEVER=1 -g 
 LOCAL_LDLIBS    :=  -Wl,--gc-sections -lc
 LOCAL_SRC_FILES := $(MY_SRC)
 LOCAL_MODULE := test-unwind
