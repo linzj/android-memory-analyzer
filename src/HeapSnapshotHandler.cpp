@@ -4,6 +4,7 @@
 #include "HeapSnapshotHandler.h"
 #include "DumpHeap.h"
 #include "StopWorld.h"
+#include "LinLog.h"
 
 struct mymallinfo {
     size_t arena; /* non-mmapped space allocated from system */
@@ -40,6 +41,6 @@ void HeapSnapshotHandler::handleClient(int fd, struct sockaddr*)
     sendGlobalVariable(fd, mapList);
     MapParse::freeMapList(mapList);
     mymallinfo myinfo = dlmallinfo();
-    fprintf(stderr, "LIN:free space = %f\n", ((float)myinfo.fordblks) / 1024.0f);
+    LINLOG("LIN:free space = %f\n", ((float)myinfo.fordblks) / 1024.0f);
     restartTheWorld();
 }
