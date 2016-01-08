@@ -1,7 +1,6 @@
 #include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
-#include <algorithm>
 #include <android/log.h>
 #include "MapParse.h"
 #include "HeapServer.h"
@@ -38,23 +37,25 @@ struct ucontext {
     struct sigcontext_ia32 uc_mcontext;
 };
 
-static int mycompare(MapElement const& e, unsigned start)
+static int mycompare(const MapElement* e, unsigned long start)
 {
-    if (e.m_start < start) {
+    if (e->m_start < start) {
         return 1;
     }
     return 0;
 }
 
-void sendStackData(int fd, void** buf, int count, MapParse::MapList const& list)
+void sendStackData(int fd, void** buf, int count, const MapElement* list)
 {
     for (int i = 0; i < count; ++i) {
         ucontext* context = static_cast<ucontext*>(buf[i]);
         unsigned long start = context->uc_mcontext.sp;
-        MapParse::MapList::const_iterator found = std::lower_bound(list.begin(), list.end(), start, mycompare);
-        if (found != list.end()) {
-            if (found->m_start != start)
-                --found;
+        const MapElement* found = lowerBound(list, start, mycompare);
+        if (found != NULL) {
+            if (found != list && found->m_start != start)
+                found = found->m_prev;
+        } else {
+            found = list->m_prev;
         }
         if ((found->m_start <= start)
             && (found->m_end >= start)

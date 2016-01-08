@@ -451,7 +451,7 @@ void dlmalloc_walk_heap(void (*handler)(const void* chunkptr, size_t chunklen,
   p = malloc(n);
   assert(malloc_usable_size(p) >= 256);
 */
-size_t dlmalloc_usable_size(void*);
+size_t dlmalloc_usable_size(const void*);
 
 /*
   malloc_stats();
