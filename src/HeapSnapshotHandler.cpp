@@ -41,6 +41,6 @@ void HeapSnapshotHandler::handleClient(int fd, struct sockaddr*)
     sendGlobalVariable(fd, mapList);
     MapParse::freeMapList(mapList);
     mymallinfo myinfo = dlmallinfo();
-    LINLOG("LIN:free space = %f\n", ((float)myinfo.fordblks) / 1024.0f);
+    LINLOG("LIN:native heap: %d, allocated: %d, free: %d\n", myinfo.usmblks, myinfo.uordblks, myinfo.fordblks);
     restartTheWorld();
 }
