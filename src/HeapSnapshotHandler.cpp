@@ -27,7 +27,6 @@ void HeapSnapshotHandler::handleClient(int fd, struct sockaddr*)
         restartTheWorld();
     } else {
         // child
-        sleep(100);
         DumpHeap dh(fd);
         dh.callWalk();
         void* buf[64];
