@@ -12,3 +12,8 @@ void LightSnapshotHandler::handleClient(int fd, struct sockaddr*)
 LightSnapshotHandler::LightSnapshotHandler()
 {
 }
+
+const char* LightSnapshotHandler::name() const
+{
+    return "LightSnapshotHandler";
+}

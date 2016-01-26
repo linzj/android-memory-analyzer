@@ -44,3 +44,8 @@ void HeapSnapshotHandler::handleClient(int fd, struct sockaddr*)
     LINLOG("LIN:native heap: %d, allocated: %d, free: %d\n", myinfo.usmblks, myinfo.uordblks, myinfo.fordblks);
     restartTheWorld();
 }
+
+const char* HeapSnapshotHandler::name() const
+{
+    return "HeapSnapshotHandler";
+}

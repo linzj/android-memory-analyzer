@@ -17,6 +17,7 @@ class ClientHandler {
 public:
     virtual ~ClientHandler() {}
     virtual void handleClient(int fd, struct sockaddr*) = 0;
+    virtual const char* name() const = 0;
 };
 
 namespace BrowserShell {

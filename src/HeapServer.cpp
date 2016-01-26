@@ -12,11 +12,11 @@
 #include "HeapServer.h"
 #include "HeapInfo.h"
 
-static const uint16_t s_port = 3244;
-static uint16_t s_current_port = s_port;
+static uint16_t s_port = 3244;
+static uint16_t s_client_count = 0;
 static const int MAX_HANDLER_COUNT = 8;
 struct ClientDesc {
-    int clientPort_;
+    int serverPort_;
     int fd_;
     ClientHandler* handler_;
 };
@@ -56,9 +56,7 @@ public:
     }
     ~FileOwner()
     {
-        if (fd_ != -1) {
-            close(fd_);
-        }
+        reset(-1);
     }
 
     FileOwner(FileOwner const& lhs)
@@ -77,6 +75,13 @@ public:
         int tmp = this->fd_;
         this->fd_ = lhs.fd_;
         lhs.fd_ = tmp;
+    }
+
+    void reset(int fd) {
+        if (fd_ != -1) {
+            close(fd_);
+        }
+        fd_ = fd;
     }
 
     int release()
@@ -140,13 +145,19 @@ static void* serverFunc(void*)
         LINLOG("failed to create epoll\n");
         return NULL;
     }
-    int endIndex = s_current_port - s_port;
+    int endIndex = s_client_count;
 
     for (int i = 0; i < endIndex; ++i) {
-        FileOwner socketfd(createServerSocket(s_port + i));
-        if (socketfd.get() == -1) {
-            LINLOG("createServerSocket failed\n");
-            return NULL;
+        FileOwner socketfd;
+        int port;
+        while (true) {
+            port = s_port++;
+            FileOwner _socketfd(createServerSocket(port));
+            if (_socketfd.get() == -1) {
+                continue;
+            }
+            socketfd.swap(_socketfd);
+            break;
         }
         struct epoll_event ev;
 
@@ -160,6 +171,8 @@ static void* serverFunc(void*)
         }
         LINLOG_VERBOSE("added sock %d to fv\n", socketfd.get());
         s_handlers[i].fd_ = socketfd.get();
+        s_handlers[i].serverPort_ = port;
+        LINLOG("server port bind at port: %d for client: %s.\n", port, s_handlers[i].handler_->name());
         fv.push_back(socketfd);
     }
 
@@ -189,7 +202,7 @@ static void* serverFunc(void*)
         LINLOG_VERBOSE("accepted client:%d:%d\n", ev.data.fd, clientSockFd.get());
         // find handler
 
-        int endIndex = s_current_port - s_port;
+        int endIndex = s_client_count;
         int i;
 
         for (i = 0; i < endIndex; ++i) {
@@ -217,7 +230,7 @@ void startServer(void)
 {
     int pthread_ret;
     pthread_t mythread;
-    int index = (s_current_port - s_port);
+    int index = s_client_count;
     if (index == 0) {
         LINLOG("not client to server\n");
         return;
@@ -232,7 +245,7 @@ void startServer(void)
 
 void registerClient(ClientHandler* handler)
 {
-    int index = (s_current_port - s_port);
+    int index = s_client_count;
     // overflow the max count
     if (index >= MAX_HANDLER_COUNT) {
         delete handler;
@@ -240,8 +253,8 @@ void registerClient(ClientHandler* handler)
     }
     LINLOG_VERBOSE("registering handler %p\n", handler);
     s_handlers[index].handler_ = handler;
-    s_handlers[index].clientPort_ = s_current_port;
-    s_current_port++;
+    s_handlers[index].serverPort_ = 0;
+    s_client_count++;
 }
 }
 #endif // ENABLE_HEAP_SEVER

@@ -7,7 +7,9 @@
 class LightSnapshotHandler : public ClientHandler {
 public:
     LightSnapshotHandler();
+private:
     virtual void handleClient(int fd, struct sockaddr*);
+    virtual const char* name() const;
 };
 
 #endif /* LIGHTSNAPSHOTHANDLER_H */
