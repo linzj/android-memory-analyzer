@@ -19,6 +19,7 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 static void* g_context[64];
 static int g_contextLen;
 static bool g_shouldSet;
+static const int my_signal = SIGRTMIN + 11;
 
 static void myaction(int, siginfo_t* info, void* ucontext)
 {
@@ -57,7 +58,7 @@ static bool boardcastSignal(int num, int selfTid, int selfPid, int maxSendCount)
             }
             int curPid = static_cast<int>(strtoul(cur->d_name, NULL, 10));
             if (curPid != selfTid) {
-                syscall(__NR_tgkill, selfPid, curPid, 47);
+                syscall(__NR_tgkill, selfPid, curPid, my_signal);
             }
             if (++sendCount == maxSendCount) {
                 break;
@@ -74,16 +75,16 @@ bool stopTheWorld(void)
     struct sigaction newAction;
     newAction.sa_sigaction = myaction;
     newAction.sa_mask = 0;
-    newAction.sa_flags = SA_SIGINFO;
+    newAction.sa_flags = SA_SIGINFO | SA_RESTART;
     newAction.sa_restorer = NULL;
     int mytid = syscall(__NR_gettid, 0);
     g_contextLen = 0;
-    ret = sigaction(47, &newAction, &oldAction);
+    ret = sigaction(my_signal, &newAction, &oldAction);
     if (ret != 0) {
         return false;
     }
     g_shouldSet = true;
-    if (boardcastSignal(47, mytid, getpid(), 64)) {
+    if (boardcastSignal(my_signal, mytid, getpid(), 64)) {
     }
     sleep(1);
     pthread_mutex_lock(&mutex);
@@ -94,7 +95,7 @@ bool stopTheWorld(void)
 
 void restartTheWorld(void)
 {
-    sigaction(47, &oldAction, NULL);
+    sigaction(my_signal, &oldAction, NULL);
     pthread_mutex_lock(&mutex);
     pthread_cond_broadcast(&cond);
     pthread_mutex_unlock(&mutex);

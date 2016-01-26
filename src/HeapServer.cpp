@@ -4,8 +4,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
-#include <errno.h>
+#include <sys/syscall.h>
 #include <arpa/inet.h>
+
+#include <errno.h>
 #include <unistd.h>
 #include <pthread.h>
 #include "LinLog.h"
@@ -35,7 +37,7 @@ int sendTillEnd(int fd, const char* buffer, size_t s)
 {
     const char* bufferEnd = buffer + s;
     while (buffer != bufferEnd) {
-        int byteSend = send(fd, buffer, s, 0);
+        int byteSend = syscall(__NR_sendto,fd, buffer, s, 0, NULL, 0, 0);
         if (byteSend == -1) {
             LINLOG("send Till End failed!errno = %d, buffer = %p, sent %d bytes.\n", errno, buffer, static_cast<int>(bufferEnd - buffer));
             return byteSend;
@@ -221,7 +223,6 @@ static void* serverFunc(void*)
         lockHeapServer();
         s_handlers[i].handler_->handleClient(clientSockFd.get(), reinterpret_cast<struct sockaddr*>(&clientAddr));
         unlockHeapServer();
-        shutdown(clientSockFd.get(), SHUT_RDWR);
     }
     return NULL;
 }
