@@ -8,19 +8,15 @@
 #include <stdlib.h>
 
 #include "ChunkInfo.h"
-#include "dlmalloc.h"
 #include "HeapInfo.h"
 #include "HeapServer.h"
 #include "HeapSnapshotHandler.h"
 #include "LightSnapshotHandler.h"
-
-typedef uint32_t uptr;
-
-#define WRAP(x) _##x
+#include "mymalloc.h"
 
 void* malloc(uptr bytes)
 {
-    void* data = dlmalloc(bytes);
+    void* data = mymalloc(bytes);
     if (!data) {
         return data;
     }
@@ -42,12 +38,12 @@ void free(void* data)
         HeapInfo::unregisterChunkInfo(data);
     }
     HeapInfo::unlockHeapInfo();
-    dlfree(data);
+    myfree(data);
 }
 
 void* calloc(uptr n_elements, uptr elem_size)
 {
-    void* data = dlcalloc(n_elements, elem_size);
+    void* data = mycalloc(n_elements, elem_size);
     if (!data) {
         return data;
     }
@@ -65,7 +61,7 @@ void* calloc(uptr n_elements, uptr elem_size)
 
 void* realloc(void* oldMem, uptr bytes)
 {
-    void* newMem = dlrealloc(oldMem, bytes);
+    void* newMem = myrealloc(oldMem, bytes);
     if (newMem) {
         HeapInfo::lockHeapInfo();
         if (!HeapInfo::isCurrentThreadLockedRecursive()) {
@@ -87,7 +83,7 @@ extern "C" {
 
 void* memalign(uptr alignment, uptr bytes)
 {
-    void* data = dlmemalign(alignment, bytes);
+    void* data = mymemalign(alignment, bytes);
     if (!data) {
         return data;
     }
@@ -104,13 +100,14 @@ void* memalign(uptr alignment, uptr bytes)
 
 size_t malloc_usable_size(const void* ptr)
 {
-    return dlmalloc_usable_size(ptr);
+    return mymalloc_usable_size(ptr);
 }
 
 class Constructor {
 public:
     Constructor()
     {
+        initMyMalloc();
         HeapInfo::init(64 * (1 << 20));
         BrowserShell::registerClient(new HeapSnapshotHandler());
         BrowserShell::registerClient(new LightSnapshotHandler());

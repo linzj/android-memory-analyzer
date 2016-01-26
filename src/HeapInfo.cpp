@@ -1,4 +1,4 @@
-#include "dlmalloc.h"
+#include "mymalloc.h"
 #include "ghash.h"
 #include "HeapInfo.h"
 #include "ChunkInfo.h"
@@ -8,7 +8,6 @@
 
 
 struct HeapInfoImpl {
-    mspace m_data;
     GHashTable* m_infoMap;
 };
 
@@ -27,7 +26,7 @@ static gboolean keyEqual(gconstpointer a,
 
 static void valueRelease(gpointer data)
 {
-    mspace_free(g_impl->m_data, data);
+    myfree(data);
 }
 
 struct HashWalkCB
@@ -51,10 +50,8 @@ static void hashWalk(gpointer key,
 
 void HeapInfo::init(int dataSize)
 {
-    mspace space = create_mspace(dataSize, 1);
-    void* storage = mspace_malloc(space, sizeof(HeapInfoImpl));
+    void* storage = mymalloc(sizeof(HeapInfoImpl));
     g_impl = reinterpret_cast<HeapInfoImpl*>(storage);
-    g_impl->m_data = space;
     g_impl->m_infoMap = g_hash_table_new_full(keyHash, keyEqual, NULL, valueRelease);
 }
 
@@ -109,7 +106,7 @@ bool HeapInfo::isCurrentThreadLockedRecursive()
 
 void* g_memdup(const void* src, size_t s)
 {
-    void* dst = mspace_malloc(g_impl->m_data, s);
+    void* dst = mymalloc(s);
     memcpy(dst, src, s);
     return dst;
 }
@@ -117,7 +114,7 @@ void* g_memdup(const void* src, size_t s)
 void
 g_free (gpointer mem)
 {
-    mspace_free(g_impl->m_data, mem);
+    myfree(mem);
 }
 
 #define SIZE_OVERFLOWS(a,b) (G_UNLIKELY ((b) > 0 && (a) > G_MAXSIZE / (b)))
@@ -137,5 +134,5 @@ g_malloc_n (gsize n_blocks,
       __builtin_unreachable();
     }
 
-  return mspace_calloc (g_impl->m_data, n_blocks, n_block_bytes);
+  return mycalloc (n_blocks, n_block_bytes);
 }
