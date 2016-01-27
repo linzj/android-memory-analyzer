@@ -1,5 +1,6 @@
 {
     global: malloc; calloc; free; realloc; memalign;
             _Znwj; _ZdlPv; _Znaj; _ZdaPv; malloc_usable_size;
+            mmap; munmap;
     local: *;
 };

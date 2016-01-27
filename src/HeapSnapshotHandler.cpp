@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 
 #include "HeapSnapshotHandler.h"
+#include "HeapInfo.h"
 #include "DumpHeap.h"
 #include "StopWorld.h"
 #include "LinLog.h"
@@ -27,6 +28,7 @@ void HeapSnapshotHandler::handleClient(int fd, struct sockaddr*)
         restartTheWorld();
     } else {
         // child
+        HeapInfo::setLockDisable();
         DumpHeap dh(fd);
         dh.callWalk();
         void* buf[64];

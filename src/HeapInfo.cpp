@@ -87,21 +87,34 @@ static pthread_mutex_t s_restoreMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
 
 static int s_lockCount = 0;
 
+static bool s_lockDisable = false;
+
 void HeapInfo::lockHeapInfo()
 {
+    if (s_lockDisable)
+        return;
     pthread_mutex_lock(&s_restoreMutex);
     s_lockCount++;
 }
 
 void HeapInfo::unlockHeapInfo()
 {
+    if (s_lockDisable)
+        return;
     s_lockCount--;
     pthread_mutex_unlock(&s_restoreMutex);
 }
 
 bool HeapInfo::isCurrentThreadLockedRecursive()
 {
+    if (s_lockDisable)
+        return true;
     return s_lockCount > 1;
+}
+
+void HeapInfo::setLockDisable(void)
+{
+    s_lockDisable = true;
 }
 
 void* g_memdup(const void* src, size_t s)

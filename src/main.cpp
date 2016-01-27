@@ -1,11 +1,15 @@
 #include <unistd.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/syscall.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <pthread.h>
-#include <new>
 #include <stdlib.h>
+#include <errno.h>
+#include <new>
 
 #include "ChunkInfo.h"
 #include "HeapInfo.h"
@@ -13,9 +17,15 @@
 #include "HeapSnapshotHandler.h"
 #include "LightSnapshotHandler.h"
 #include "mymalloc.h"
+# define likely(x)	__builtin_expect(!!(x), 1)
+# define unlikely(x)	__builtin_expect(!!(x), 0)
+#define MAX_ERRNO 4095
 
-void* malloc(uptr bytes)
+static void* do_malloc(uptr bytes)
 {
+    if (unlikely(mymalloc == NULL)) {
+        initMyMalloc();
+    }
     void* data = mymalloc(bytes);
     if (!data) {
         return data;
@@ -31,7 +41,7 @@ void* malloc(uptr bytes)
     return data;
 }
 
-void free(void* data)
+static void do_free(void* data)
 {
     HeapInfo::lockHeapInfo();
     if (!HeapInfo::isCurrentThreadLockedRecursive()) {
@@ -41,7 +51,7 @@ void free(void* data)
     myfree(data);
 }
 
-void* calloc(uptr n_elements, uptr elem_size)
+static void* do_calloc(uptr n_elements, uptr elem_size)
 {
     void* data = mycalloc(n_elements, elem_size);
     if (!data) {
@@ -59,7 +69,7 @@ void* calloc(uptr n_elements, uptr elem_size)
     return data;
 }
 
-void* realloc(void* oldMem, uptr bytes)
+static void* do_realloc(void* oldMem, uptr bytes)
 {
     void* newMem = myrealloc(oldMem, bytes);
     if (newMem) {
@@ -81,7 +91,7 @@ extern "C" {
     __attribute__((visibility("default"))) size_t malloc_usable_size(const void* ptr);
 }
 
-void* memalign(uptr alignment, uptr bytes)
+static void* do_memalign(uptr alignment, uptr bytes)
 {
     void* data = mymemalign(alignment, bytes);
     if (!data) {
@@ -98,20 +108,254 @@ void* memalign(uptr alignment, uptr bytes)
     return data;
 }
 
-size_t malloc_usable_size(const void* ptr)
+static size_t do_malloc_usable_size(const void* ptr)
 {
     return mymalloc_usable_size(ptr);
 }
+
+#define static_assert(__b, __m) \
+  extern int compile_time_assert_failed[ ( __b ) ? 1 : -1 ]  \
+                                              __attribute__( ( unused ) );
+
+template <class Dest, class Source>
+static inline Dest bit_cast(Source const& source) {
+  static_assert(sizeof(Dest) == sizeof(Source),
+                "source and dest must be same size");
+  Dest dest;
+  memcpy(&dest, &source, sizeof(dest));
+  return dest;
+}
+
+static void* _mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset)
+{
+    unsigned long ret;
+#if defined(__arm__) && (__arm__ == 1)
+    register void* myaddr asm("r0") = addr;
+    register size_t mylength asm("r1") = length;
+    register int myprot asm("r2") = prot;
+    register int myflags asm("r3") = flags;
+    register int myfd asm("r4") = fd;
+    register off_t mypgoffset asm("r5") = static_cast<unsigned long>(offset) >> PAGE_SHIFT;
+    register int scno asm("r7")= __NR_mmap2;
+    asm volatile ("svc $0\n"
+    "mov %0, r0\n"
+        : "=r"(ret)
+        : "r"(myaddr), "r"(mylength), "r"(myprot), "r"(myflags)
+        , "r"(myfd), "r"(mypgoffset), "r"(scno));
+#else
+#error unsupported arch
+#endif
+    if (ret > static_cast<unsigned long>(-MAX_ERRNO)) {
+        errno = bit_cast<unsigned long>(ret);
+        return MAP_FAILED;
+    }
+    return reinterpret_cast<void*>(ret);
+}
+
+static int _munmap(void* addr, size_t length)
+{
+    int ret;
+#if defined(__arm__) && (__arm__ == 1)
+    register void* myaddr asm("r0") = addr;
+    register size_t mylength asm("r1") = length;
+    register int scno asm("r7")= __NR_munmap;
+    asm volatile ("svc $0\n"
+    "mov %0, r0\n"
+        : "=r"(ret)
+        : "r"(myaddr), "r"(mylength), "r"(scno));
+#else
+#error unsupported arch
+#endif
+    if (static_cast<unsigned long>(ret) > static_cast<unsigned long>(-MAX_ERRNO)) {
+        errno = static_cast<unsigned long>(ret);
+        return -1;
+    }
+    return ret;
+}
+
+static void* do_mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset)
+{
+    void* data = _mmap(addr, length, prot, flags, fd, offset);
+    if (data == MAP_FAILED) {
+        return data;
+    }
+    // ignore shared and named mmaps
+    if (flags & (MAP_ANONYMOUS | MAP_PRIVATE) != (MAP_ANONYMOUS | MAP_PRIVATE)) {
+        return data;
+    }
+    // ignore the page with execute bit.
+    if (prot & PROT_EXEC) {
+        return data;
+    }
+    // ignore the readonly page.
+    if (0 == (prot & PROT_WRITE)) {
+        return data;
+    }
+    HeapInfo::lockHeapInfo();
+    if (!HeapInfo::isCurrentThreadLockedRecursive()) {
+        ChunkInfo info;
+        ChunkInfo::get(info, data);
+        char* myaddr = static_cast<char*>(data);
+
+        // register for each page.
+        for (ssize_t mylength = length; mylength > 0;
+                mylength -= PAGE_SIZE, myaddr += PAGE_SIZE) {
+            info.m_chunkSize = PAGE_SIZE;
+            HeapInfo::registerChunkInfo(myaddr, info);
+        }
+    }
+    HeapInfo::unlockHeapInfo();
+    errno = 0;
+    return data;
+}
+
+static int do_munmap(void* addr, size_t length)
+{
+    HeapInfo::lockHeapInfo();
+    if (!HeapInfo::isCurrentThreadLockedRecursive()) {
+        char* myaddr = static_cast<char*>(addr);
+
+        // unregister for each page.
+        for (ssize_t mylength = length; mylength > 0;
+                mylength -= PAGE_SIZE, myaddr += PAGE_SIZE) {
+            HeapInfo::unregisterChunkInfo(myaddr);
+        }
+    }
+    HeapInfo::unlockHeapInfo();
+    _munmap(addr, length);
+}
+
+static void* do_pre_malloc(uptr bytes)
+{
+    if (unlikely(!mymalloc)) {
+        initMyMalloc();
+    }
+    return mymalloc(bytes);
+}
+
+static void do_pre_free(void* data)
+{
+    if (unlikely(!mymalloc)) {
+        initMyMalloc();
+    }
+    myfree(data);
+}
+
+static void* do_pre_realloc(void* oldMem, uptr bytes)
+{
+    if (unlikely(!mymalloc)) {
+        initMyMalloc();
+    }
+    return myrealloc(oldMem, bytes);
+}
+
+static void* do_pre_memalign(uptr alignment, uptr bytes)
+{
+    if (unlikely(!mymalloc)) {
+        initMyMalloc();
+    }
+    return mymemalign(alignment, bytes);
+}
+
+static size_t do_pre_malloc_usable_size(const void* ptr)
+{
+    if (unlikely(!mymalloc)) {
+        initMyMalloc();
+    }
+    return mymalloc_usable_size(ptr);
+}
+
+static void* do_pre_mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset)
+{
+    return _mmap(addr, length, prot, flags, fd, offset);
+}
+
+static int do_pre_munmap(void* addr, size_t length)
+{
+    return _munmap(addr, length);
+}
+
+static void* do_pre_calloc(uptr n_elements, uptr elem_size)
+{
+    if (unlikely(!mymalloc)) {
+        initMyMalloc();
+    }
+    return mycalloc(n_elements, elem_size);
+}
+
+typedef void* (*pfnmmap)(void* addr, size_t length, int prot, int flags, int fd, off_t offset);
+typedef int (*pfnmunmap)(void* addr, size_t length);
+
+static pfnmalloc handlemalloc = do_pre_malloc;
+static pfnfree handlefree = do_pre_free;
+static pfncalloc handlecalloc = do_pre_calloc;
+static pfnrealloc handlerealloc = do_pre_realloc;
+static pfnmemalign handlememalign = do_pre_memalign;
+static pfnmalloc_usable_size handlemalloc_usable_size = do_pre_malloc_usable_size;
+static pfnmmap handlemmap = do_pre_mmap;
+static pfnmunmap handlemunmap = do_pre_munmap;
+
+
+void* malloc(uptr bytes)
+{
+    return handlemalloc(bytes);
+}
+
+void free(void* data)
+{
+    handlefree(data);
+}
+
+void* realloc(void* oldMem, uptr bytes)
+{
+    return handlerealloc(oldMem, bytes);
+}
+
+void* memalign(uptr alignment, uptr bytes)
+{
+    return handlememalign(alignment, bytes);
+}
+
+size_t malloc_usable_size(const void* ptr)
+{
+    return handlemalloc_usable_size(ptr);
+}
+
+void* mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset)
+{
+    return handlemmap(addr, length, prot, flags, fd, offset);
+}
+
+int munmap(void* addr, size_t length)
+{
+    return handlemunmap(addr, length);
+}
+
+void* calloc(uptr n_elements, uptr elem_size)
+{
+    return handlecalloc(n_elements, elem_size);
+}
+
 
 class Constructor {
 public:
     Constructor()
     {
-        initMyMalloc();
+        if (!unlikely(mymalloc)) {
+            initMyMalloc();
+        }
         HeapInfo::init(64 * (1 << 20));
         BrowserShell::registerClient(new HeapSnapshotHandler());
         BrowserShell::registerClient(new LightSnapshotHandler());
         BrowserShell::startServer();
+        handlemalloc = do_malloc;
+        handlefree = do_free;
+        handlecalloc = do_calloc;
+        handlerealloc = do_realloc;
+        handlememalign = do_memalign;
+        handlemalloc_usable_size = do_malloc_usable_size;
+        // handlemmap = do_mmap;
+        // handlemunmap = do_munmap;
     }
 
 private:

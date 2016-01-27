@@ -15,6 +15,7 @@ public:
     static void lockHeapInfo();
     static void unlockHeapInfo();
     static bool isCurrentThreadLockedRecursive();
+    static void setLockDisable(void);
 
 private:
     HeapInfo(size_t dataSize);

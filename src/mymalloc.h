@@ -2,6 +2,7 @@
 #define MYMALLOC_H
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/mman.h>
 typedef uint32_t uptr;
 typedef void* (*pfnmalloc)(uptr bytes);
 typedef void (*pfnfree)(void* data);
