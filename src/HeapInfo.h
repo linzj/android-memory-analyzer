@@ -8,8 +8,7 @@ public:
     static void registerChunkInfo(const void*, ChunkInfo const&);
     static void unregisterChunkInfo(const void*);
     static ChunkInfo const* getChunkInfo(const void*);
-    typedef void (*pfn_walk)(const void* chunkptr, size_t chunklen,
-                          const void* userptr, size_t userlen,
+    typedef void (*pfn_walk)(const void* userptr, size_t userlen,
                           void* arg);
     static void walk(pfn_walk walk, void* data);
     static void lockHeapInfo();

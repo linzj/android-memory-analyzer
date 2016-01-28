@@ -45,7 +45,7 @@ static void hashWalk(gpointer key,
 
     len = (len + 3) & ~3;
 
-    hwcb->walk(addr, len, addr, len, hwcb->data);
+    hwcb->walk(addr, len, hwcb->data);
 }
 
 void HeapInfo::init(int dataSize)

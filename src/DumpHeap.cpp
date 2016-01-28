@@ -19,11 +19,11 @@ struct SendOnce {
     const void* m_backtraces[ChunkInfo::MAX_BACKTRACES];
 };
 
-void DumpHeap::notifyChunk(const void* chunk, size_t len, const void* userptr, size_t userlen)
+void DumpHeap::notifyChunk(const void* userptr, size_t userlen)
 {
     if (userptr) {
         SendOnce once = { userptr, userlen };
-        const ChunkInfo* info = HeapInfo::getChunkInfo(chunk);
+        const ChunkInfo* info = HeapInfo::getChunkInfo(userptr);
         size_t sendSize = offsetof(SendOnce, m_backtraces);
         if (info && info->m_backtracesLen) {
             once.m_backtracesLen = info->m_backtracesLen;
@@ -53,10 +53,9 @@ void DumpHeap::callWalk(void)
     HeapInfo::walk(mywalk, this);
 }
 
-void DumpHeap::mywalk(const void* chunkptr, size_t chunklen,
-                      const void* userptr, size_t userlen,
+void DumpHeap::mywalk(const void* userptr, size_t userlen,
                       void* arg)
 {
     DumpHeap* This = reinterpret_cast<DumpHeap*>(arg);
-    This->notifyChunk(chunkptr, chunklen, userptr, userlen);
+    This->notifyChunk(userptr, userlen);
 }
