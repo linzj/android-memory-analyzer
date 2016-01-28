@@ -16,6 +16,8 @@ pfncalloc mycalloc;
 pfnrealloc myrealloc;
 pfnmemalign mymemalign;
 pfnmalloc_usable_size mymalloc_usable_size;
+pfnmmap mymmap;
+pfnmunmap mymunmap;
 
 typedef uint64_t __u64;
 typedef uint32_t __u32;
@@ -764,4 +766,6 @@ void initMyMalloc(void)
     INIT_OR_CRASH(realloc);
     INIT_OR_CRASH(memalign);
     INIT_OR_CRASH(malloc_usable_size);
+    INIT_OR_CRASH(mmap);
+    INIT_OR_CRASH(munmap);
 }

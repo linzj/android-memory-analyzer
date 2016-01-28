@@ -126,56 +126,9 @@ static inline Dest bit_cast(Source const& source) {
   return dest;
 }
 
-static void* _mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset)
-{
-    unsigned long ret;
-#if defined(__arm__) && (__arm__ == 1)
-    register void* myaddr asm("r0") = addr;
-    register size_t mylength asm("r1") = length;
-    register int myprot asm("r2") = prot;
-    register int myflags asm("r3") = flags;
-    register int myfd asm("r4") = fd;
-    register off_t mypgoffset asm("r5") = static_cast<unsigned long>(offset) >> PAGE_SHIFT;
-    register int scno asm("r7")= __NR_mmap2;
-    asm volatile ("svc $0\n"
-    "mov %0, r0\n"
-        : "=r"(ret)
-        : "r"(myaddr), "r"(mylength), "r"(myprot), "r"(myflags)
-        , "r"(myfd), "r"(mypgoffset), "r"(scno));
-#else
-#error unsupported arch
-#endif
-    if (ret > static_cast<unsigned long>(-MAX_ERRNO)) {
-        errno = bit_cast<unsigned long>(ret);
-        return MAP_FAILED;
-    }
-    return reinterpret_cast<void*>(ret);
-}
-
-static int _munmap(void* addr, size_t length)
-{
-    int ret;
-#if defined(__arm__) && (__arm__ == 1)
-    register void* myaddr asm("r0") = addr;
-    register size_t mylength asm("r1") = length;
-    register int scno asm("r7")= __NR_munmap;
-    asm volatile ("svc $0\n"
-    "mov %0, r0\n"
-        : "=r"(ret)
-        : "r"(myaddr), "r"(mylength), "r"(scno));
-#else
-#error unsupported arch
-#endif
-    if (static_cast<unsigned long>(ret) > static_cast<unsigned long>(-MAX_ERRNO)) {
-        errno = static_cast<unsigned long>(ret);
-        return -1;
-    }
-    return ret;
-}
-
 static void* do_mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
-    void* data = _mmap(addr, length, prot, flags, fd, offset);
+    void* data = mymmap(addr, length, prot, flags, fd, offset);
     if (data == MAP_FAILED) {
         return data;
     }
@@ -223,7 +176,7 @@ static int do_munmap(void* addr, size_t length)
         }
     }
     HeapInfo::unlockHeapInfo();
-    _munmap(addr, length);
+    mymunmap(addr, length);
 }
 
 static void* do_pre_malloc(uptr bytes)
@@ -268,12 +221,18 @@ static size_t do_pre_malloc_usable_size(const void* ptr)
 
 static void* do_pre_mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
-    return _mmap(addr, length, prot, flags, fd, offset);
+    if (unlikely(!mymalloc)) {
+        initMyMalloc();
+    }
+    return mymmap(addr, length, prot, flags, fd, offset);
 }
 
 static int do_pre_munmap(void* addr, size_t length)
 {
-    return _munmap(addr, length);
+    if (unlikely(!mymalloc)) {
+        initMyMalloc();
+    }
+    return mymunmap(addr, length);
 }
 
 static void* do_pre_calloc(uptr n_elements, uptr elem_size)
