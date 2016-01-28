@@ -195,6 +195,7 @@ static void* do_mmap(void* addr, size_t length, int prot, int flags, int fd, off
     if (!HeapInfo::isCurrentThreadLockedRecursive()) {
         ChunkInfo info;
         ChunkInfo::get(info, data);
+        info.m_flags = ChunkInfo::MMAP;
         char* myaddr = static_cast<char*>(data);
 
         // register for each page.
@@ -354,8 +355,8 @@ public:
         handlerealloc = do_realloc;
         handlememalign = do_memalign;
         handlemalloc_usable_size = do_malloc_usable_size;
-        // handlemmap = do_mmap;
-        // handlemunmap = do_munmap;
+        handlemmap = do_mmap;
+        handlemunmap = do_munmap;
     }
 
 private:
