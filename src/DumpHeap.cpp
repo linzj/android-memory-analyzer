@@ -5,15 +5,6 @@
 #include "HeapInfo.h"
 #include "HeapServer.h"
 
-extern "C" {
-void* dlmalloc(size_t);
-void dlfree(void*);
-void dlmalloc_walk_heap(void (*handler)(const void* chunkptr, size_t chunklen,
-                                        const void* userptr, size_t userlen,
-                                        void* arg),
-                        void* harg);
-}
-
 DumpHeap::DumpHeap(int fd, bool sendUserData)
     : fd_(fd)
     , sendUserData_(sendUserData)
