@@ -341,7 +341,7 @@ class Constructor {
 public:
     Constructor()
     {
-        if (!unlikely(mymalloc)) {
+        if (unlikely(!mymalloc)) {
             initMyMalloc();
         }
         HeapInfo::init(64 * (1 << 20));
