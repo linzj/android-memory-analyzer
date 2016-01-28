@@ -724,13 +724,11 @@ const char* SymbolResolver::getString(uint64_t offset)
 template <class elf_sym_type>
 void* SymbolResolver::doFindSym(const char* symName)
 {
-    LINLOG("finding symbol: %s\n", symName);
     uint32_t hash = elf_hash(reinterpret_cast<const uint8_t*>(symName));
     for (uint32_t n = bucket_[hash % nBucket_]; n != 0; n = chain_[n]) {
         elf_sym_type* s = static_cast<elf_sym_type*>(symTable_) + n;
 
         if (strcmp(getString(s->st_name), symName) == 0) {
-            LINLOG("found symbol: %s, at %p\n", symName, static_cast<char*>(start_) + s->st_value);
             return static_cast<char*>(start_) + s->st_value;
         }
     }
