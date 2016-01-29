@@ -10,6 +10,7 @@ struct SendOnceGeneral {
     uint32_t m_dataAttrib; // for this data's attributes
 };
 static const int DATA_ATTR_USER_CONTENT = 0x1;
+static const int DATA_ATTR_MMAP_RECORD = 0x2;
 int sendTillEnd(int fd, const char* buffer, size_t s);
 #endif // ENABLE_HEAP_SEVER
 

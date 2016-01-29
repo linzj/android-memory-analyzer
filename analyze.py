@@ -9,6 +9,9 @@ thread_data = special_magic
 global_variable = 0x81000000L
 PAGE_SIZE = 4096
 
+DATA_ATTR_USER_CONTENT = 0x1
+DATA_ATTR_MMAP_RECORD = 0x2
+
 class HeapElement(object):
     def __hash__(self):
         return self.addr
@@ -25,6 +28,7 @@ class HeapElement(object):
         self.userContent = userContent
         self.refCount = 0
         self.special = 0
+        self.dataAttrib = 0
 
 class HeapGraph(object):
     def __init__(self):
@@ -49,8 +53,6 @@ def writeHeapElement(e, f):
 
 class ParseError(Exception):
     pass
-
-DATA_ATTR_USER_CONTENT = 0x1
 
 def parse(g, f):
     s = struct.Struct("<L")
@@ -94,6 +96,7 @@ def parse(g, f):
         e = HeapElement(addr, addrLen, backtraces, userContent)
         if special:
             e.special = special
+        e.dataAttrib = dataAttrib
         g.addElement(e)
         generalList.append(e)
     return generalList
@@ -183,7 +186,7 @@ def extractNotRefElement(l):
     result = []
     for he in l:
 # find all refCount = 0 which is not special
-        if he.refCount == 0 and he.special == 0:
+        if he.refCount == 0 and he.special == 0 and ((he.dataAttrib & DATA_ATTR_MMAP_RECORD) == 0):
             result.append(he)
     return result
 

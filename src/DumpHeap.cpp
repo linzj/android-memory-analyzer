@@ -59,6 +59,10 @@ void DumpHeap::notifyChunk(const void* userptr, size_t userlen)
         once.m_dataAttrib |= DATA_ATTR_USER_CONTENT;
     }
 
+    if (isMMap) {
+        once.m_dataAttrib |= DATA_ATTR_MMAP_RECORD;
+    }
+
     sendTillEnd(fd_, reinterpret_cast<const char*>(&once), sendSize);
 
     if (sendUserData) {
