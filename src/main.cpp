@@ -23,20 +23,18 @@
 
 static void* do_malloc(uptr bytes)
 {
-    if (unlikely(mymalloc == NULL)) {
-        initMyMalloc();
-    }
+    HeapInfo::lockHeapInfo();
     void* data = mymalloc(bytes);
     if (!data) {
-        return data;
+        goto exit;
     }
-    HeapInfo::lockHeapInfo();
     if (!HeapInfo::isCurrentThreadLockedRecursive()) {
         ChunkInfo info;
         ChunkInfo::get(info, data);
         info.m_chunkSize = bytes;
         HeapInfo::registerChunkInfo((void*)data, info);
     }
+exit:
     HeapInfo::unlockHeapInfo();
     return data;
 }
@@ -53,11 +51,11 @@ static void do_free(void* data)
 
 static void* do_calloc(uptr n_elements, uptr elem_size)
 {
+    HeapInfo::lockHeapInfo();
     void* data = mycalloc(n_elements, elem_size);
     if (!data) {
-        return data;
+        goto exit;
     }
-    HeapInfo::lockHeapInfo();
     if (!HeapInfo::isCurrentThreadLockedRecursive()) {
         ChunkInfo info;
         ChunkInfo::get(info, data);
@@ -65,15 +63,16 @@ static void* do_calloc(uptr n_elements, uptr elem_size)
 
         HeapInfo::registerChunkInfo((void*)data, info);
     }
+exit:
     HeapInfo::unlockHeapInfo();
     return data;
 }
 
 static void* do_realloc(void* oldMem, uptr bytes)
 {
+    HeapInfo::lockHeapInfo();
     void* newMem = myrealloc(oldMem, bytes);
     if (newMem) {
-        HeapInfo::lockHeapInfo();
         if (!HeapInfo::isCurrentThreadLockedRecursive()) {
             HeapInfo::unregisterChunkInfo(oldMem);
             void* data = newMem;
@@ -82,8 +81,8 @@ static void* do_realloc(void* oldMem, uptr bytes)
             info.m_chunkSize = bytes;
             HeapInfo::registerChunkInfo(data, info);
         }
-        HeapInfo::unlockHeapInfo();
     }
+    HeapInfo::unlockHeapInfo();
     return newMem;
 }
 extern "C" {
@@ -93,11 +92,11 @@ extern "C" {
 
 static void* do_memalign(uptr alignment, uptr bytes)
 {
+    HeapInfo::lockHeapInfo();
     void* data = mymemalign(alignment, bytes);
     if (!data) {
-        return data;
+        goto exit;
     }
-    HeapInfo::lockHeapInfo();
     if (!HeapInfo::isCurrentThreadLockedRecursive()) {
         ChunkInfo info;
         ChunkInfo::get(info, data);
@@ -105,6 +104,7 @@ static void* do_memalign(uptr alignment, uptr bytes)
         HeapInfo::registerChunkInfo((void*)data, info);
     }
     HeapInfo::unlockHeapInfo();
+exit:
     return data;
 }
 
@@ -113,35 +113,10 @@ static size_t do_malloc_usable_size(const void* ptr)
     return mymalloc_usable_size(ptr);
 }
 
-#define static_assert(__b, __m) \
-  extern int compile_time_assert_failed[ ( __b ) ? 1 : -1 ]  \
-                                              __attribute__( ( unused ) );
-
-template <class Dest, class Source>
-static inline Dest bit_cast(Source const& source) {
-  static_assert(sizeof(Dest) == sizeof(Source),
-                "source and dest must be same size");
-  Dest dest;
-  memcpy(&dest, &source, sizeof(dest));
-  return dest;
-}
-
 static void* do_mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
     void* data = mymmap(addr, length, prot, flags, fd, offset);
     if (data == MAP_FAILED) {
-        return data;
-    }
-    // ignore shared and named mmaps
-    if (flags & (MAP_ANONYMOUS | MAP_PRIVATE) != (MAP_ANONYMOUS | MAP_PRIVATE)) {
-        return data;
-    }
-    // ignore the page with execute bit.
-    if (prot & PROT_EXEC) {
-        return data;
-    }
-    // ignore the readonly page.
-    if (0 == (prot & PROT_WRITE)) {
         return data;
     }
     HeapInfo::lockHeapInfo();
