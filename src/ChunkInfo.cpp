@@ -36,18 +36,8 @@ static _Unwind_Reason_Code trace_function(_Unwind_Context* context, void* arg)
     return _URC_NO_REASON;
 }
 
-static int backtrace(const void** addrs, size_t ignore, size_t size)
-{
-    stack_crawl_state_t state;
-    state.count = size;
-    state.ignore = ignore;
-    state.addrs = addrs;
-    _Unwind_Backtrace(trace_function, (void*)&state);
-    return size - state.count;
-}
-#else
 #ifdef __i386__
-static int backtrace(const void** addrs, size_t ignore, size_t size)
+static int fast_backtrace(const void** addrs, size_t ignore, size_t size)
 {
     uintptr_t ebp;
     uintptr_t esp;
@@ -81,7 +71,7 @@ static int backtrace(const void** addrs, size_t ignore, size_t size)
 
 #ifdef __arm__
 
-static int backtrace(const void** addrs, size_t ignore, size_t size)
+static int fast_backtrace(const void** addrs, size_t ignore, size_t size)
 {
     uintptr_t fp;
     uintptr_t sp;
@@ -113,11 +103,31 @@ static int backtrace(const void** addrs, size_t ignore, size_t size)
 }
 #endif //__arm__
 
+static int backtrace(const void** addrs, size_t ignore, size_t size)
+{
+    stack_crawl_state_t state;
+    state.count = size;
+    state.ignore = ignore;
+    state.addrs = addrs;
+    _Unwind_Backtrace(trace_function, (void*)&state);
+    int unwind_count = size - state.count;
+    if (unwind_count == 0) {
+        // special handle this case.
+        fast_backtrace(addrs, ignore, size);
+    }
+    return size - state.count;
+}
+#else
+
+static int backtrace(const void** addrs, size_t ignore, size_t size)
+{
+    return fast_backtrace(addrs, ignore, size);
+}
 #endif //FAST_MODE
 
 void ChunkInfo::get(ChunkInfo& info, void*)
 {
     memset(&info, 0, sizeof(ChunkInfo));
-    int Len = backtrace(info.m_backtraces, 3, ChunkInfo::MAX_BACKTRACES);
+    int Len = backtrace(info.m_backtraces, 2, ChunkInfo::MAX_BACKTRACES);
     info.m_backtracesLen = Len;
 }
