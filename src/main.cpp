@@ -151,7 +151,7 @@ static int do_munmap(void* addr, size_t length)
         }
     }
     HeapInfo::unlockHeapInfo();
-    mymunmap(addr, length);
+    return mymunmap(addr, length);
 }
 
 static void* do_pre_malloc(uptr bytes)
