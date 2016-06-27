@@ -1,8 +1,9 @@
 #include <stddef.h>
 #include <string.h>
-#include <unwind.h>
+#include "backtrace.h"
 #include <stdint.h>
 #include "ChunkInfo.h"
+#include "LinLog.h"
 #ifdef __arm__
 #define FAST_MODE 0
 #elif defined(__i386__) || defined(__x86_64)
@@ -16,11 +17,11 @@ typedef struct {
     const void** addrs;
 } stack_crawl_state_t;
 
-static _Unwind_Reason_Code trace_function(_Unwind_Context* context, void* arg)
+static int trace_function(uintptr_t _ip, void* arg)
 {
     stack_crawl_state_t* state = (stack_crawl_state_t*)arg;
     if (state->count) {
-        void* ip = (void*)_Unwind_GetIP(context);
+        void* ip = (void*)_ip;
         if (ip) {
             if (state->ignore) {
                 state->ignore--;
@@ -31,9 +32,9 @@ static _Unwind_Reason_Code trace_function(_Unwind_Context* context, void* arg)
             }
         }
     } else {
-        return static_cast<_Unwind_Reason_Code>(1); // force break
+        return BACKTRACE_ABORT; // force break
     }
-    return _URC_NO_REASON;
+    return BACKTRACE_CONTINUE;
 }
 
 #ifdef __i386__
@@ -109,7 +110,7 @@ static int backtrace(const void** addrs, size_t ignore, size_t size)
     state.count = size;
     state.ignore = ignore;
     state.addrs = addrs;
-    _Unwind_Backtrace(trace_function, (void*)&state);
+    mybacktrace(trace_function, (void*)&state);
     int unwind_count = size - state.count;
     if (unwind_count == 0) {
         // special handle this case.

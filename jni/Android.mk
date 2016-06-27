@@ -35,7 +35,8 @@ MY_SRC := \
 
 ifeq ($(TARGET_ARCH_ABI), armeabi)
 MY_SRC += \
-../src/ThreadData_linux_arm.cpp  
+../src/ThreadData_linux_arm.cpp \
+../src/backtrace_arm.c
 endif
 
 ifeq ($(TARGET_ARCH_ABI), x86)
