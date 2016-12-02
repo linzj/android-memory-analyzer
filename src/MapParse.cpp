@@ -59,6 +59,8 @@ void MapParse::parseLine(const char* line)
     if (pathStart) {
         strcpy(reinterpret_cast<char*>(e + 1), pathStart);
         e->m_path = reinterpret_cast<const char*>(e + 1);
+    } else {
+        e->m_path = NULL;
     }
     insertElement(e);
 }
