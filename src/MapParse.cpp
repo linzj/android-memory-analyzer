@@ -31,7 +31,7 @@ void MapParse::parseLine(const char* line)
         pathStart = NULL;
     }
     const char* protectStart = strstr(line, " ");
-    if (!protectStart && ((protectStart + 5) >= lineEnd)) {
+    if (!protectStart || ((protectStart + 5) >= lineEnd)) {
         return;
     }
     protectStart++;
@@ -70,8 +70,8 @@ MapElement* MapParse::parseFile(const char* fileName)
     FILE* file = fopen(fileName, "r");
     MapParse p;
     while (true) {
-        char buf[256];
-        const char* line = fgets(buf, 256, file);
+        char buf[512];
+        const char* line = fgets(buf, 512, file);
         if (feof(file)) {
             break;
         }
